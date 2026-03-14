@@ -1,0 +1,263 @@
+{
+	"compiler": {
+		"version": "0.8.30+commit.73712a01"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "walletAddress",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "string",
+						"name": "fileHash",
+						"type": "string"
+					},
+					{
+						"indexed": false,
+						"internalType": "string",
+						"name": "cid",
+						"type": "string"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					}
+				],
+				"name": "ProofCreated",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "string",
+						"name": "_fileHash",
+						"type": "string"
+					}
+				],
+				"name": "getProof",
+				"outputs": [
+					{
+						"components": [
+							{
+								"internalType": "address",
+								"name": "walletAddress",
+								"type": "address"
+							},
+							{
+								"internalType": "string",
+								"name": "fileHash",
+								"type": "string"
+							},
+							{
+								"internalType": "string",
+								"name": "fileName",
+								"type": "string"
+							},
+							{
+								"internalType": "uint256",
+								"name": "fileSize",
+								"type": "uint256"
+							},
+							{
+								"internalType": "string",
+								"name": "contentType",
+								"type": "string"
+							},
+							{
+								"internalType": "string",
+								"name": "cid",
+								"type": "string"
+							},
+							{
+								"internalType": "uint256",
+								"name": "timestamp",
+								"type": "uint256"
+							}
+						],
+						"internalType": "struct ProofStore.Proof",
+						"name": "",
+						"type": "tuple"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_user",
+						"type": "address"
+					}
+				],
+				"name": "getUserProofs",
+				"outputs": [
+					{
+						"internalType": "string[]",
+						"name": "",
+						"type": "string[]"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "string",
+						"name": "_fileHash",
+						"type": "string"
+					},
+					{
+						"internalType": "string",
+						"name": "_fileName",
+						"type": "string"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_fileSize",
+						"type": "uint256"
+					},
+					{
+						"internalType": "string",
+						"name": "_contentType",
+						"type": "string"
+					},
+					{
+						"internalType": "string",
+						"name": "_cid",
+						"type": "string"
+					}
+				],
+				"name": "storeProof",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "totalProofs",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "string",
+						"name": "_fileHash",
+						"type": "string"
+					},
+					{
+						"internalType": "string",
+						"name": "_cid",
+						"type": "string"
+					}
+				],
+				"name": "verifyProof",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"details": "链上存证智能合约，用于将文件哈希和 IPFS CID 绑定并持久化记录在区块链上。",
+			"kind": "dev",
+			"methods": {
+				"getProof(string)": {
+					"details": "根据文件哈希查询单条存证记录详情",
+					"params": {
+						"_fileHash": "文件哈希"
+					},
+					"returns": {
+						"_0": "Proof 对应哈希的存证详情结构信息"
+					}
+				},
+				"getUserProofs(address)": {
+					"details": "查询特定用户的存证哈希列表",
+					"params": {
+						"_user": "用户钱包地址"
+					},
+					"returns": {
+						"_0": "string[] 用户所存证的文件哈希集合"
+					}
+				},
+				"storeProof(string,string,uint256,string,string)": {
+					"details": "存储新的文件存证记录",
+					"params": {
+						"_cid": "IPFS 上传后得到的 CID",
+						"_contentType": "MIME 类型",
+						"_fileHash": "文件哈希 (建议前端计算好后传入)",
+						"_fileName": "文件名称",
+						"_fileSize": "文件大小"
+					}
+				},
+				"verifyProof(string,string)": {
+					"details": "验证给定的文件是否由当前账号存证，并且并未被篡改 (匹配 CID)",
+					"params": {
+						"_cid": "要对比的 CID",
+						"_fileHash": "文件哈希"
+					},
+					"returns": {
+						"_0": "bool 验证成功与否"
+					}
+				}
+			},
+			"title": "ProofStore",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"ProofStore.sol": "ProofStore"
+		},
+		"evmVersion": "prague",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"ProofStore.sol": {
+			"keccak256": "0x6dfb0b10c239c1770a86efa31c0315c7c631dc79dc26e068051bf24c4459d37d",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://7936545eb2792f0096f851b18797b2a0c071d35dbad45105581b4b9de0f56909",
+				"dweb:/ipfs/QmPxSsV3UW7cDSDk44Y85E8TWsQ2P5wvHhp9FDWokXhCrR"
+			]
+		}
+	},
+	"version": 1
+}
