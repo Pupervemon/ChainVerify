@@ -10,12 +10,12 @@ import (
 
 func main() {
 
-	abiBytes, err := os.ReadFile("../../blockchain/ProofStore.abi")
+	abiBytes, err := os.ReadFile("../blockchain/ProofStore.abi")
 	if err != nil {
 		log.Fatalf("Failed to read abi: %v", err)
 	}
 
-	binBytes, err := os.ReadFile("../../blockchain/ProofStore.bin")
+	binBytes, err := os.ReadFile("../blockchain/ProofStore.bin")
 	if err != nil {
 		log.Fatalf("Failed to read bin: %v", err)
 	}
@@ -36,9 +36,9 @@ func main() {
 		log.Fatalf("Failed to generate bind: %v", err)
 	}
 
-	os.MkdirAll("../pkg/contracts/proofstore", os.ModePerm)
+	os.MkdirAll("pkg/contracts/proofstore", os.ModePerm)
 
-	err = os.WriteFile("../pkg/contracts/proofstore/proofstore.go", []byte(code), 0600)
+	err = os.WriteFile("pkg/contracts/proofstore/proofstore.go", []byte(code), 0600)
 	if err != nil {
 		log.Fatalf("Failed to write proofstore.go: %v", err)
 	}

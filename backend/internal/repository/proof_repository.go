@@ -18,6 +18,7 @@ var ErrProofNotFound = errors.New("proof not found")
 type ProofRepository interface {
 	ListByWallet(context.Context, string, int, int) ([]models.Proof, int64, error)
 	GetByFileHash(context.Context, string) (*models.Proof, error)
+	Save(context.Context, *models.Proof) error
 	GetStats(context.Context) (models.ProofStats, error)
 }
 
@@ -63,6 +64,11 @@ func (r *GormProofRepository) GetByFileHash(ctx context.Context, fileHash string
 	}
 
 	return &proof, nil
+}
+
+// Save 保存或更新存证记录
+func (r *GormProofRepository) Save(ctx context.Context, proof *models.Proof) error {
+	return r.db.WithContext(ctx).Save(proof).Error
 }
 
 // GetStats 获取存证统计信息
@@ -132,6 +138,18 @@ func (r *MemoryProofRepository) GetByFileHash(_ context.Context, fileHash string
 	}
 
 	return nil, ErrProofNotFound
+}
+
+// Save 内存实现：保存或更新存证记录
+func (r *MemoryProofRepository) Save(_ context.Context, proof *models.Proof) error {
+	for i, p := range r.proofs {
+		if strings.EqualFold(p.FileHash, proof.FileHash) {
+			r.proofs[i] = *proof
+			return nil
+		}
+	}
+	r.proofs = append(r.proofs, *proof)
+	return nil
 }
 
 // GetStats 内存实现：获取存证统计信息

@@ -20,6 +20,7 @@ type Config struct {
 	EnableAutoMigrate bool
 	EthRPCURL         string
 	HardhatPrivateKey string
+	ContractAddress   string
 }
 
 // Load 从环境变量加载配置
@@ -37,6 +38,7 @@ func Load() Config {
 		EnableAutoMigrate: getEnvBool("ENABLE_AUTO_MIGRATE", true),
 		EthRPCURL:         getEnv("ETH_RPC_URL", "http://127.0.0.1:8545"),
 		HardhatPrivateKey: getEnv("HARDHAT_PRIVATE_KEY", "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"),
+		ContractAddress:   os.Getenv("CONTRACT_ADDRESS"),
 	}
 }
 

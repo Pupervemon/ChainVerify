@@ -31,3 +31,8 @@ func (s *ProofService) GetProof(ctx context.Context, fileHash string) (*models.P
 func (s *ProofService) GetStats(ctx context.Context) (models.ProofStats, error) {
 	return s.repo.GetStats(ctx)
 }
+
+// SaveProof 保存存证记录
+func (s *ProofService) SaveProof(ctx context.Context, proof *models.Proof) error {
+	return s.repo.Save(ctx, proof)
+}
