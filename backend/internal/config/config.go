@@ -1,9 +1,13 @@
 package config
 
 import (
+	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 // Config 应用配置结构体
@@ -25,6 +29,35 @@ type Config struct {
 
 // Load 从环境变量加载配置
 func Load() Config {
+	// 尝试自动寻找并加载 .env 文件
+	// 从当前目录向上搜索，直到找到 .env 文件或到达根目录
+	dir, err := os.Getwd()
+	if err == nil {
+		for {
+			envPath := filepath.Join(dir, ".env")
+			if _, err := os.Stat(envPath); err == nil {
+				_ = godotenv.Load(envPath)
+				log.Printf("Loaded environment variables from: %s", envPath)
+				break
+			}
+			
+			// 同时尝试在 backend 子目录下查找（如果当前是在项目根目录运行）
+			backendEnvPath := filepath.Join(dir, "backend", ".env")
+			if _, err := os.Stat(backendEnvPath); err == nil {
+				_ = godotenv.Load(backendEnvPath)
+				log.Printf("Loaded environment variables from: %s", backendEnvPath)
+				break
+			}
+
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				log.Println("No .env file found, using system environment variables")
+				break
+			}
+			dir = parent
+		}
+	}
+
 	return Config{
 		Port:              getEnv("PORT", "8080"),
 		BasePath:          getEnv("BASE_PATH", "/api/v1"),
@@ -36,7 +69,7 @@ func Load() Config {
 		WriteTimeout:      getEnvDuration("WRITE_TIMEOUT", 30*time.Second),
 		AllowedOrigins:    []string{"http://localhost:3000", "http://localhost:5173"},
 		EnableAutoMigrate: getEnvBool("ENABLE_AUTO_MIGRATE", true),
-		EthRPCURL:         getEnv("ETH_RPC_URL", "http://127.0.0.1:8545"),
+		EthRPCURL:         getEnv("SEPOLIA_RPC_URL", "http://127.0.0.1:8545"),
 		HardhatPrivateKey: getEnv("HARDHAT_PRIVATE_KEY", "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"),
 		ContractAddress:   os.Getenv("CONTRACT_ADDRESS"),
 	}

@@ -1,0 +1,255 @@
+basePath: /api/v1
+definitions:
+  models.Proof:
+    properties:
+      block_number:
+        type: integer
+      chain_id:
+        type: string
+      cid:
+        type: string
+      content_type:
+        type: string
+      contract_address:
+        type: string
+      created_at:
+        type: string
+      file_hash:
+        type: string
+      file_name:
+        type: string
+      file_size:
+        type: integer
+      id:
+        type: integer
+      proof_created_at:
+        type: string
+      tx_hash:
+        type: string
+      updated_at:
+        type: string
+      wallet_address:
+        type: string
+    type: object
+  models.ProofStats:
+    properties:
+      database_enabled:
+        type: boolean
+      latest_proof_at:
+        type: string
+      total_proofs:
+        type: integer
+      total_storage:
+        type: integer
+      total_users:
+        type: integer
+    type: object
+  response.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+  service.UploadResult:
+    properties:
+      cid:
+        description: IPFS 唯一内容标识符 (Hash)
+        type: string
+      file_name:
+        description: 原始文件名
+        type: string
+      file_size:
+        description: 文件大小 (字节)
+        type: integer
+      gateway_url:
+        description: 可直接访问文件的网关 URL
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: ChainVerify 存证平台后端 API 文档。
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: ChainVerify API
+  version: "1.0"
+paths:
+  /healthz:
+    get:
+      consumes:
+      - application/json
+      description: 检查后端 API 服务是否运行正常
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 服务运行正常
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  properties:
+                    service:
+                      type: string
+                    version:
+                      type: string
+                  type: object
+              type: object
+      summary: 服务健康检查
+      tags:
+      - 系统
+  /proofs:
+    get:
+      consumes:
+      - application/json
+      description: 根据钱包地址、分页获取存证记录
+      parameters:
+      - description: 钱包地址
+        in: query
+        name: wallet_address
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页大小
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功获取存证列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  properties:
+                    items:
+                      items:
+                        $ref: '#/definitions/models.Proof'
+                      type: array
+                    pagination:
+                      type: object
+                  type: object
+              type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取存证列表
+      tags:
+      - 存证
+  /proofs/{file_hash}:
+    get:
+      consumes:
+      - application/json
+      description: 根据文件哈希获取存证详情
+      parameters:
+      - description: 文件哈希
+        in: path
+        name: file_hash
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功获取存证详情
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Proof'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: 未找到该存证
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取存证详情
+      tags:
+      - 存证
+  /stats:
+    get:
+      consumes:
+      - application/json
+      description: 获取全站存证数据统计（如存证总数、数据库状态等）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功获取统计信息
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ProofStats'
+              type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取存证统计
+      tags:
+      - 统计
+  /store/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 通过 Pinata 服务将文件上传至 IPFS，并获取文件哈希
+      parameters:
+      - description: 待上传文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 文件上传成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.UploadResult'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 内部服务配置错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "502":
+          description: 上游服务错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 上传文件到 IPFS
+      tags:
+      - 存储
+swagger: "2.0"

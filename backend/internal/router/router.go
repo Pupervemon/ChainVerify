@@ -4,9 +4,12 @@ import (
 	"net/http"
 	"strings"
 
+	_ "github.com/Pupervemon/ChainVerify/cmd/server/docs"
 	"github.com/Pupervemon/ChainVerify/internal/config"
 	"github.com/Pupervemon/ChainVerify/internal/handler"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // New 初始化路由并配置中间件
@@ -16,6 +19,9 @@ func New(cfg config.Config, h *handler.Handler) *gin.Engine {
 	engine.MaxMultipartMemory = cfg.MaxUploadSize
 
 	engine.GET("/healthz", h.Health)
+
+	// Swagger 放在根路由，不受 BasePath 限制
+	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	v1 := engine.Group(cfg.BasePath)
 	{

@@ -2,7 +2,8 @@ package response
 
 import "github.com/gin-gonic/gin"
 
-type payload struct {
+// Response 统一响应结构体
+type Response struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
@@ -10,7 +11,7 @@ type payload struct {
 
 // Success 返回成功的 JSON 响应
 func Success(c *gin.Context, message string, data interface{}) {
-	c.JSON(200, payload{
+	c.JSON(200, Response{
 		Code:    200,
 		Message: message,
 		Data:    data,
@@ -19,7 +20,7 @@ func Success(c *gin.Context, message string, data interface{}) {
 
 // Error 返回错误的 JSON 响应
 func Error(c *gin.Context, code int, message string) {
-	c.JSON(code, payload{
+	c.JSON(code, Response{
 		Code:    code,
 		Message: message,
 	})
