@@ -9,6 +9,7 @@ import (
 
 	"github.com/Pupervemon/ChainVerify/internal/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ErrProofNotFound 存证记录未找到错误
@@ -66,9 +67,14 @@ func (r *GormProofRepository) GetByFileHash(ctx context.Context, fileHash string
 	return &proof, nil
 }
 
-// Save 保存或更新存证记录
+// Save 保存或更新存证记录 (支持 Upsert)
 func (r *GormProofRepository) Save(ctx context.Context, proof *models.Proof) error {
-	return r.db.WithContext(ctx).Save(proof).Error
+	// 使用 GORM 的 OnConflict 功能来处理并发写入或重复事件
+	// 如果 file_hash 冲突，则更新所有字段
+	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "file_hash"}},
+		UpdateAll: true,
+	}).Create(proof).Error
 }
 
 // GetStats 获取存证统计信息

@@ -7,6 +7,7 @@ import (
 	_ "github.com/Pupervemon/ChainVerify/cmd/server/docs"
 	"github.com/Pupervemon/ChainVerify/internal/config"
 	"github.com/Pupervemon/ChainVerify/internal/handler"
+	"github.com/Pupervemon/ChainVerify/pkg/response"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -17,6 +18,14 @@ func New(cfg config.Config, h *handler.Handler) *gin.Engine {
 	engine := gin.New()
 	engine.Use(gin.Logger(), gin.Recovery(), corsMiddleware(cfg.AllowedOrigins))
 	engine.MaxMultipartMemory = cfg.MaxUploadSize
+
+	// 全局自定义处理
+	engine.NoRoute(func(c *gin.Context) {
+		response.NotFound(c, "the requested resource was not found")
+	})
+	engine.NoMethod(func(c *gin.Context) {
+		response.Error(c, http.StatusMethodNotAllowed, "http method not allowed")
+	})
 
 	engine.GET("/healthz", h.Health)
 

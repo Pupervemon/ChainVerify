@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"net/http"
 	"strconv"
 
 	"github.com/Pupervemon/ChainVerify/internal/repository"
@@ -32,7 +31,7 @@ func (h *Handler) ListProofs(c *gin.Context) {
 	walletAddress := c.Query("wallet_address")
 	proofs, total, err := h.proofService.ListProofs(c.Request.Context(), walletAddress, page, pageSize)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "query proofs failed")
+		response.InternalError(c, "query proofs failed", err.Error())
 		return
 	}
 
@@ -61,18 +60,18 @@ func (h *Handler) ListProofs(c *gin.Context) {
 func (h *Handler) GetProof(c *gin.Context) {
 	fileHash := c.Param("file_hash")
 	if fileHash == "" {
-		response.Error(c, http.StatusBadRequest, "file_hash is required")
+		response.BadRequest(c, "file_hash is required")
 		return
 	}
 
 	proof, err := h.proofService.GetProof(c.Request.Context(), fileHash)
 	if err != nil {
 		if errors.Is(err, repository.ErrProofNotFound) {
-			response.Error(c, http.StatusNotFound, "proof not found")
+			response.NotFound(c, "proof not found", err.Error())
 			return
 		}
 
-		response.Error(c, http.StatusInternalServerError, "query proof failed")
+		response.InternalError(c, "query proof failed", err.Error())
 		return
 	}
 

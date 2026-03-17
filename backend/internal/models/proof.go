@@ -10,7 +10,7 @@ type Proof struct {
 	FileName        string    `json:"file_name" gorm:"size:255;not null"`
 	FileSize        int64     `json:"file_size" gorm:"not null"`
 	ContentType     string    `json:"content_type" gorm:"size:128"`
-	CID             string    `json:"cid" gorm:"size:255;index;not null"`
+	CID             string    `json:"cid" gorm:"column:cid;size:255;index;not null"`
 	TxHash          string    `json:"tx_hash" gorm:"size:128;index"`
 	BlockNumber     uint64    `json:"block_number"`
 	ChainID         string    `json:"chain_id" gorm:"size:32"`

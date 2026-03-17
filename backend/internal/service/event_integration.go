@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/Pupervemon/ChainVerify/internal/models"
@@ -40,45 +41,53 @@ func (s *EventIntegrationService) Start(ctx context.Context) {
 
 // handleProofCreated 处理 ProofCreated 事件
 func (s *EventIntegrationService) handleProofCreated(event *proofstore.ProofStoreProofCreated) {
-	log.Printf("Processing ProofCreated Event - FileHash: %s, Wallet: %s\n", event.FileHash.Hex(), event.WalletAddress.Hex())
+	// 标准化文件哈希：去除可能存在的 0x 前缀，统一转为小写
+	fileHash := strings.ToLower(strings.TrimPrefix(event.FileHash.Hex(), "0x"))
+	wallet := strings.ToLower(event.WalletAddress.Hex())
+	
+	log.Printf("Processing ProofCreated Event - FileHash: %s, Wallet: %s, TxHash: %s\n", 
+		fileHash, wallet, event.Raw.TxHash.Hex())
 
-	// 转换为数据库模型
-	// 注意：智能合约传来的 fileHash 是 common.Hash 类型 (32 bytes的字节数组)，如果是用 string 存储（比如 IPFS hash 或普通 sha256 字符串），这里需要转换
-	// 如果前端传入的是字符串哈希存入合约被截断，需要检查匹配逻辑。这里假设传入以太坊合约的存证记录本身 fileHash 就能匹配
-	proof := &models.Proof{
-		WalletAddress:  event.WalletAddress.Hex(),
-		FileHash:       event.FileHash.Hex(),
-		CID:            event.Cid,
-		ProofCreatedAt: time.Unix(event.Timestamp.Int64(), 0),
-		// 这里由于 Event 里只有极少部分字段，其他如 FileName/FileSize 可能需要前端上传时即存数据库，这里更新；
-		// 或者仅存储最核⼼的链上记录。如果是后者，先尝试从库中寻找是否已有该文件记录进行更新。
-	}
-
-	// 尝试获取现有记录，补充其他字段
+	// 1. 尝试从数据库获取现有记录 (通过上传接口已创建的记录)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	existingProof, err := s.proofService.GetProof(ctx, proof.FileHash)
-	if err == nil {
-		// 如果数据库中已经存在（例如前端调用 storeProof 的同时保存了部分信息），那么我们进行合并更新
-		existingProof.CID = proof.CID
-		existingProof.ProofCreatedAt = proof.ProofCreatedAt
-		existingProof.WalletAddress = proof.WalletAddress
+	existingProof, err := s.proofService.GetProof(ctx, fileHash)
+	
+	if err == nil && existingProof != nil {
+		// 场景 A：文件已由上传接口存入数据库，现在监听到链上存证完成
+		// 更新链上相关字段
+		existingProof.CID = event.Cid
+		existingProof.WalletAddress = wallet
+		existingProof.TxHash = event.Raw.TxHash.Hex()
+		existingProof.BlockNumber = event.Raw.BlockNumber
+		existingProof.ProofCreatedAt = time.Unix(event.Timestamp.Int64(), 0)
 
 		err = s.proofService.SaveProof(ctx, existingProof)
 		if err != nil {
-			log.Printf("Failed to update existing proof in database: %v\n", err)
+			log.Printf("Failed to update proof with on-chain info: %v\n", err)
 			return
 		}
-		log.Printf("Successfully updated existing proof for FileHash: %s\n", proof.FileHash)
+		log.Printf("Successfully synchronized on-chain data for FileHash: %s\n", fileHash)
 
 	} else {
-		// 没有找到，直接保存链上给的新记录
-		err = s.proofService.SaveProof(ctx, proof)
+		// 场景 B：数据库中没有记录（可能是用户直接通过合约调用，或上传接口未成功保存）
+		// 创建一条新的存证记录
+		newProof := &models.Proof{
+			WalletAddress:  wallet,
+			FileHash:       fileHash,
+			FileName:       "Unknown (From Chain)", // 链上不存文件名，标记为未知
+			CID:            event.Cid,
+			TxHash:         event.Raw.TxHash.Hex(),
+			BlockNumber:    event.Raw.BlockNumber,
+			ProofCreatedAt: time.Unix(event.Timestamp.Int64(), 0),
+		}
+
+		err = s.proofService.SaveProof(ctx, newProof)
 		if err != nil {
-			log.Printf("Failed to save new event proof to database: %v\n", err)
+			log.Printf("Failed to save new chain event proof: %v\n", err)
 			return
 		}
-		log.Printf("Successfully saved new proof from chain to database - FileHash: %s\n", proof.FileHash)
+		log.Printf("Successfully created new proof from chain event - FileHash: %s\n", fileHash)
 	}
 }

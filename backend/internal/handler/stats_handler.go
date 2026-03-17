@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"net/http"
-
 	"github.com/Pupervemon/ChainVerify/pkg/response"
 	"github.com/gin-gonic/gin"
 )
@@ -19,7 +17,7 @@ import (
 func (h *Handler) GetStats(c *gin.Context) {
 	stats, err := h.proofService.GetStats(c.Request.Context())
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "query stats failed")
+		response.InternalError(c, "fetch stats failed", err.Error())
 		return
 	}
 
