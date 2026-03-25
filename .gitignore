@@ -34,6 +34,8 @@ go.work
 ehthumbs.db
 Thumbs.db
 
+.gocache
+
 # Blockchain / Hardhat
 blockchain/node_modules/
 blockchain/artifacts/
@@ -43,3 +45,8 @@ blockchain/coverage/
 blockchain/coverage.json
 # Backend / Go
 backend/vendor/
+
+# Frontend / Vite
+frontend/node_modules/
+frontend/dist/
+frontend/.vite-deproof/
