@@ -69,7 +69,7 @@ func Load() Config {
 		WriteTimeout:      getEnvDuration("WRITE_TIMEOUT", 30*time.Second),
 		AllowedOrigins:    []string{"http://localhost:3000", "http://localhost:5173"},
 		EnableAutoMigrate: getEnvBool("ENABLE_AUTO_MIGRATE", true),
-		EthRPCURL:         getEnv("SEPOLIA_RPC_WSS", getEnv("SEPOLIA_RPC_WSS", "http://127.0.0.1:8545")),
+		EthRPCURL:         getEnv("SEPOLIA_RPC_URL", "http://127.0.0.1:8545"),
 		HardhatPrivateKey: getEnv("HARDHAT_PRIVATE_KEY", "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"),
 		ContractAddress:   os.Getenv("CONTRACT_ADDRESS"),
 	}

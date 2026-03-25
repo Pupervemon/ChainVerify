@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/big"
+	"strings"
 
 	"github.com/Pupervemon/ChainVerify/pkg/contracts/proofstore"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -54,8 +56,11 @@ func (l *EventListener) ListenProofCreated(ctx context.Context, handler func(*pr
 		case err := <-sub.Err():
 			return fmt.Errorf("ProofCreated subscription error: %w", err)
 		case event := <-logs:
-			log.Printf("Received ProofCreated event: fileHash=%s, wallet=%s, cid=%s",
-				event.FileHash.Hex(), event.WalletAddress.Hex(), event.Cid)
+			fileHashHex := common.Hash(event.FileHash).Hex()
+			ownerHex := event.Owner.Hex()
+
+			log.Printf("监听到新存证上链! Hash: %s, Owner: %s, FileName: %s, CID: %s",
+				fileHashHex, ownerHex, event.FileName, event.Cid)
 			if handler != nil {
 				handler(event)
 			}
@@ -64,4 +69,46 @@ func (l *EventListener) ListenProofCreated(ctx context.Context, handler func(*pr
 			return ctx.Err()
 		}
 	}
+}
+
+// OnChainProof 自定义结构体，用于接收 GetProof 的多返回值
+type OnChainProof struct {
+	Owner     common.Address
+	Cid       string
+	Timestamp *big.Int
+}
+
+// GetProof 读取链上确权信息 (用于核验文件真伪)
+// fileHashHex 应该是一个带 "0x" 前缀的 64 位哈希字符串
+func (l *EventListener) GetProof(ctx context.Context, fileHashHex string) (*OnChainProof, error) {
+	fileHashBytes32 := common.HexToHash(fileHashHex)
+
+	// 调用智能合约的 getProof 方法
+	// 注意：根据 abigen 的生成规则，带有多个具名返回值的 view 函数，会返回一个匿名结构体
+	result, err := l.proofStore.GetProof(&bind.CallOpts{Context: ctx}, fileHashBytes32)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get proof from chain: %w", err)
+	}
+
+	// 组装并返回
+	return &OnChainProof{
+		Owner:     result.Owner,
+		Cid:       result.Cid,
+		Timestamp: result.Timestamp,
+	}, nil
+}
+
+// ContractAddressHex returns the bound contract address.
+func (l *EventListener) ContractAddressHex() string {
+	return strings.ToLower(l.address.Hex())
+}
+
+// ChainID returns the connected chain id as a string.
+func (l *EventListener) ChainID(ctx context.Context) (string, error) {
+	chainID, err := l.client.Client.NetworkID(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return chainID.String(), nil
 }

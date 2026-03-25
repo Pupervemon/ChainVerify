@@ -5,11 +5,12 @@ import (
 	"strconv"
 
 	"github.com/Pupervemon/ChainVerify/internal/repository"
+	"github.com/Pupervemon/ChainVerify/pkg/hashutil"
 	"github.com/Pupervemon/ChainVerify/pkg/response"
 	"github.com/gin-gonic/gin"
 )
 
-// ListProofs 处理获取存证列表请求
+// ListProofs handles paginated proof list requests.
 // @Summary      获取存证列表
 // @Description  根据钱包地址、分页获取存证记录
 // @Tags         存证
@@ -45,7 +46,7 @@ func (h *Handler) ListProofs(c *gin.Context) {
 	})
 }
 
-// GetProof 处理获取单个存证记录请求
+// GetProof handles proof detail lookups by file hash.
 // @Summary      获取存证详情
 // @Description  根据文件哈希获取存证详情
 // @Tags         存证
@@ -64,14 +65,20 @@ func (h *Handler) GetProof(c *gin.Context) {
 		return
 	}
 
-	proof, err := h.proofService.GetProof(c.Request.Context(), fileHash)
+	normalizedHash, err := hashutil.NormalizeSHA256Hex(fileHash)
 	if err != nil {
-		if errors.Is(err, repository.ErrProofNotFound) {
-			response.NotFound(c, "proof not found", err.Error())
+		response.BadRequest(c, "invalid file_hash", err.Error())
+		return
+	}
+
+	proof, queryErr := h.proofService.GetProof(c.Request.Context(), normalizedHash)
+	if queryErr != nil {
+		if errors.Is(queryErr, repository.ErrProofNotFound) {
+			response.NotFound(c, "proof not found", queryErr.Error())
 			return
 		}
 
-		response.InternalError(c, "query proof failed", err.Error())
+		response.InternalError(c, "query proof failed", queryErr.Error())
 		return
 	}
 

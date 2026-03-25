@@ -8,14 +8,15 @@ import (
 	"time"
 
 	"github.com/Pupervemon/ChainVerify/internal/models"
+	"github.com/Pupervemon/ChainVerify/pkg/hashutil"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-// ErrProofNotFound 存证记录未找到错误
+// ErrProofNotFound indicates that no proof exists for the requested hash.
 var ErrProofNotFound = errors.New("proof not found")
 
-// ProofRepository 存证仓库接口
+// ProofRepository defines proof persistence behaviour.
 type ProofRepository interface {
 	ListByWallet(context.Context, string, int, int) ([]models.Proof, int64, error)
 	GetByFileHash(context.Context, string) (*models.Proof, error)
@@ -23,17 +24,17 @@ type ProofRepository interface {
 	GetStats(context.Context) (models.ProofStats, error)
 }
 
-// GormProofRepository 基于 GORM 的 MySQL 存证仓库实现
+// GormProofRepository is the GORM-backed proof repository implementation.
 type GormProofRepository struct {
 	db *gorm.DB
 }
 
-// NewGormProofRepository 创建新的 GORM 仓库实例
+// NewGormProofRepository creates a GORM-backed proof repository.
 func NewGormProofRepository(db *gorm.DB) *GormProofRepository {
 	return &GormProofRepository{db: db}
 }
 
-// ListByWallet 根据钱包地址列出存证记录
+// ListByWallet returns proofs for the given wallet.
 func (r *GormProofRepository) ListByWallet(ctx context.Context, wallet string, page int, pageSize int) ([]models.Proof, int64, error) {
 	var proofs []models.Proof
 	var total int64
@@ -54,10 +55,18 @@ func (r *GormProofRepository) ListByWallet(ctx context.Context, wallet string, p
 	return proofs, total, nil
 }
 
-// GetByFileHash 根据文件哈希获取存证记录
+// GetByFileHash returns a proof by canonical or legacy hash format.
 func (r *GormProofRepository) GetByFileHash(ctx context.Context, fileHash string) (*models.Proof, error) {
+	variants, err := hashutil.LookupSHA256HexVariants(fileHash)
+	if err != nil {
+		return nil, err
+	}
+
 	var proof models.Proof
-	if err := r.db.WithContext(ctx).Where("file_hash = ?", fileHash).First(&proof).Error; err != nil {
+	if err := r.db.WithContext(ctx).
+		Where("LOWER(file_hash) IN ?", variants).
+		Order("proof_created_at DESC").
+		First(&proof).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrProofNotFound
 		}
@@ -67,17 +76,19 @@ func (r *GormProofRepository) GetByFileHash(ctx context.Context, fileHash string
 	return &proof, nil
 }
 
-// Save 保存或更新存证记录 (支持 Upsert)
+// Save creates or updates a proof record.
 func (r *GormProofRepository) Save(ctx context.Context, proof *models.Proof) error {
-	// 使用 GORM 的 OnConflict 功能来处理并发写入或重复事件
-	// 如果 file_hash 冲突，则更新所有字段
+	if proof.ID != 0 {
+		return r.db.WithContext(ctx).Save(proof).Error
+	}
+
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "file_hash"}},
 		UpdateAll: true,
 	}).Create(proof).Error
 }
 
-// GetStats 获取存证统计信息
+// GetStats returns aggregate proof statistics.
 func (r *GormProofRepository) GetStats(ctx context.Context) (models.ProofStats, error) {
 	stats := models.ProofStats{DatabaseEnabled: true}
 
@@ -97,17 +108,17 @@ func (r *GormProofRepository) GetStats(ctx context.Context) (models.ProofStats, 
 	return stats, nil
 }
 
-// MemoryProofRepository 基于内存的存证仓库实现（回退方案）
+// MemoryProofRepository is the in-memory fallback repository.
 type MemoryProofRepository struct {
 	proofs []models.Proof
 }
 
-// NewMemoryProofRepository 创建新的内存仓库实例
+// NewMemoryProofRepository creates an in-memory proof repository.
 func NewMemoryProofRepository() *MemoryProofRepository {
 	return &MemoryProofRepository{proofs: []models.Proof{}}
 }
 
-// ListByWallet 内存实现：根据钱包地址列出存证记录
+// ListByWallet returns proofs for the given wallet from memory.
 func (r *MemoryProofRepository) ListByWallet(_ context.Context, wallet string, page int, pageSize int) ([]models.Proof, int64, error) {
 	filtered := make([]models.Proof, 0, len(r.proofs))
 	for _, proof := range r.proofs {
@@ -134,31 +145,57 @@ func (r *MemoryProofRepository) ListByWallet(_ context.Context, wallet string, p
 	return filtered[start:end], total, nil
 }
 
-// GetByFileHash 内存实现：根据文件哈希获取存证记录
+// GetByFileHash returns a proof by hash from memory.
 func (r *MemoryProofRepository) GetByFileHash(_ context.Context, fileHash string) (*models.Proof, error) {
+	variants, err := hashutil.LookupSHA256HexVariants(fileHash)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, proof := range r.proofs {
-		if strings.EqualFold(proof.FileHash, fileHash) {
-			copyProof := proof
-			return &copyProof, nil
+		for _, variant := range variants {
+			if strings.EqualFold(proof.FileHash, variant) {
+				copyProof := proof
+				return &copyProof, nil
+			}
 		}
 	}
 
 	return nil, ErrProofNotFound
 }
 
-// Save 内存实现：保存或更新存证记录
+// Save stores or updates a proof in memory.
 func (r *MemoryProofRepository) Save(_ context.Context, proof *models.Proof) error {
-	for i, p := range r.proofs {
-		if strings.EqualFold(p.FileHash, proof.FileHash) {
+	if proof.ID != 0 {
+		for i, existing := range r.proofs {
+			if existing.ID == proof.ID {
+				r.proofs[i] = *proof
+				return nil
+			}
+		}
+	}
+
+	for i, existing := range r.proofs {
+		existingHash, existingErr := hashutil.NormalizeSHA256Hex(existing.FileHash)
+		incomingHash, incomingErr := hashutil.NormalizeSHA256Hex(proof.FileHash)
+		if existingErr == nil && incomingErr == nil && existingHash == incomingHash {
+			if proof.ID == 0 {
+				proof.ID = existing.ID
+			}
 			r.proofs[i] = *proof
 			return nil
 		}
 	}
+
+	if proof.ID == 0 {
+		proof.ID = uint(len(r.proofs) + 1)
+	}
+
 	r.proofs = append(r.proofs, *proof)
 	return nil
 }
 
-// GetStats 内存实现：获取存证统计信息
+// GetStats returns aggregate proof statistics from memory.
 func (r *MemoryProofRepository) GetStats(_ context.Context) (models.ProofStats, error) {
 	stats := models.ProofStats{DatabaseEnabled: false}
 	uniqueWallets := make(map[string]struct{})

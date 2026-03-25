@@ -2,13 +2,17 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/Pupervemon/ChainVerify/internal/models"
+	"github.com/Pupervemon/ChainVerify/internal/repository"
 	"github.com/Pupervemon/ChainVerify/pkg/contracts/proofstore"
 	"github.com/Pupervemon/ChainVerify/pkg/eth"
+	"github.com/Pupervemon/ChainVerify/pkg/hashutil"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // EventIntegrationService 负责连接以太坊事件监听和本地数据库服务
@@ -41,53 +45,72 @@ func (s *EventIntegrationService) Start(ctx context.Context) {
 
 // handleProofCreated 处理 ProofCreated 事件
 func (s *EventIntegrationService) handleProofCreated(event *proofstore.ProofStoreProofCreated) {
-	// 标准化文件哈希：去除可能存在的 0x 前缀，统一转为小写
-	fileHash := strings.ToLower(strings.TrimPrefix(event.FileHash.Hex(), "0x"))
-	wallet := strings.ToLower(event.WalletAddress.Hex())
-	
-	log.Printf("Processing ProofCreated Event - FileHash: %s, Wallet: %s, TxHash: %s\n", 
+	//  1：精准提取 bytes32 indexed 的 FileHash
+	// event.FileHash 现在是 [32]byte，我们用 common.Hash 包装它，转为 Hex 字符串并去掉 "0x"
+	fileHashHex := common.Hash(event.FileHash).Hex()
+	fileHash := strings.ToLower(strings.TrimPrefix(fileHashHex, "0x"))
+
+	// 从 Event 中直接获取 Owner (原 WalletAddress)
+	wallet := strings.ToLower(event.Owner.Hex())
+
+	log.Printf(" Processing ProofCreated Event - FileHash: %s, Wallet: %s, TxHash: %s\n",
 		fileHash, wallet, event.Raw.TxHash.Hex())
 
-	// 1. 尝试从数据库获取现有记录 (通过上传接口已创建的记录)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	existingProof, err := s.proofService.GetProof(ctx, fileHash)
-	
-	if err == nil && existingProof != nil {
-		// 场景 A：文件已由上传接口存入数据库，现在监听到链上存证完成
-		// 更新链上相关字段
-		existingProof.CID = event.Cid
-		existingProof.WalletAddress = wallet
-		existingProof.TxHash = event.Raw.TxHash.Hex()
-		existingProof.BlockNumber = event.Raw.BlockNumber
-		existingProof.ProofCreatedAt = time.Unix(event.Timestamp.Int64(), 0)
-
-		err = s.proofService.SaveProof(ctx, existingProof)
-		if err != nil {
-			log.Printf("Failed to update proof with on-chain info: %v\n", err)
-			return
-		}
-		log.Printf("Successfully synchronized on-chain data for FileHash: %s\n", fileHash)
-
-	} else {
-		// 场景 B：数据库中没有记录（可能是用户直接通过合约调用，或上传接口未成功保存）
-		// 创建一条新的存证记录
-		newProof := &models.Proof{
-			WalletAddress:  wallet,
-			FileHash:       fileHash,
-			FileName:       "Unknown (From Chain)", // 链上不存文件名，标记为未知
-			CID:            event.Cid,
-			TxHash:         event.Raw.TxHash.Hex(),
-			BlockNumber:    event.Raw.BlockNumber,
-			ProofCreatedAt: time.Unix(event.Timestamp.Int64(), 0),
-		}
-
-		err = s.proofService.SaveProof(ctx, newProof)
-		if err != nil {
-			log.Printf("Failed to save new chain event proof: %v\n", err)
-			return
-		}
-		log.Printf("Successfully created new proof from chain event - FileHash: %s\n", fileHash)
+	// 规范化 Hash (统一格式，防止数据库出现重复的变体)
+	normalizedHash, err := hashutil.NormalizeSHA256Hex(fileHash)
+	if err != nil {
+		log.Printf(" Failed to normalize file hash from event: %v\n", err)
+		return
 	}
+
+	//  2：直接删除了 s.listener.GetProof(ctx, normalizedHash)
+	// 校验文件大小转换
+	if !event.FileSize.IsInt64() {
+		log.Printf(" On-chain file size exceeds int64 range for hash=%s\n", normalizedHash)
+		return
+	}
+	fileSize := event.FileSize.Int64()
+
+	// 获取当前连接的网络 ChainID
+	chainID, err := s.listener.ChainID(ctx)
+	if err != nil {
+		log.Printf(" Failed to fetch chain id: %v\n", err)
+		chainID = ""
+	}
+
+	//  3：直接使用 event 对象组装数据库 Model
+	proof := &models.Proof{
+		WalletAddress:   wallet,
+		FileHash:        normalizedHash,
+		FileName:        event.FileName,    // 从事件中读取明文
+		FileSize:        fileSize,          // 从事件中读取
+		ContentType:     event.ContentType, // 从事件中读取
+		CID:             event.Cid,         // 从事件中读取
+		TxHash:          event.Raw.TxHash.Hex(),
+		BlockNumber:     event.Raw.BlockNumber,
+		ChainID:         chainID,
+		ContractAddress: s.listener.ContractAddressHex(),
+		ProofCreatedAt:  time.Unix(event.Timestamp.Int64(), 0), // 从事件中读取区块时间
+	}
+
+	// 检查数据库中是否已经存在该 Hash 的记录
+	existingProof, err := s.proofService.GetProof(ctx, normalizedHash)
+	if err == nil && existingProof != nil {
+		// 如果已存在（可能是重试机制导致的重复监听到），更新其 ID 执行覆写或跳过
+		proof.ID = existingProof.ID
+	} else if err != nil && !errors.Is(err, repository.ErrProofNotFound) {
+		log.Printf(" Failed to query existing proof for hash=%s: %v\n", normalizedHash, err)
+		return
+	}
+
+	// 落库：将组装好的完整数据写入 MySQL
+	if err := s.proofService.SaveProof(ctx, proof); err != nil {
+		log.Printf(" Failed to persist on-chain proof for hash=%s: %v\n", normalizedHash, err)
+		return
+	}
+
+	log.Printf(" Successfully synchronized on-chain proof for hash=%s\n", normalizedHash)
 }

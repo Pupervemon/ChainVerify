@@ -10,7 +10,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
-	"time"
 
 	"github.com/Pupervemon/ChainVerify/internal/config"
 )
@@ -18,9 +17,12 @@ import (
 // ErrPinataJWTMissing 当配置文件中缺少 Pinata JWT 令牌时返回此错误
 var ErrPinataJWTMissing = errors.New("pinata jwt is not configured")
 
+var ErrTooManyMetadata = errors.New("metadata exceeds the maximum limit of 3 key-value pairs")
+
 // UploadResult 定义了文件上传到 IPFS 成功后的返回结构
 type UploadResult struct {
 	CID        string `json:"cid"`         // IPFS 唯一内容标识符 (Hash)
+	FileHash   string `json:"file_hash"`   // 后端计算的文件 SHA256 哈希
 	FileName   string `json:"file_name"`   // 原始文件名
 	FileSize   int64  `json:"file_size"`   // 文件大小 (字节)
 	GatewayURL string `json:"gateway_url"` // 可直接访问文件的网关 URL
@@ -32,71 +34,83 @@ type PinataService struct {
 	httpClient *http.Client  // 复用的 HTTP 客户端
 }
 
-// NewPinataService 创建并初始化一个新的 Pinata 服务实例
+type PinataMetadata struct {
+	Name      string            `json:"name"`                // 文件在 Pinata 后台显示的名字
+	KeyValues map[string]string `json:"keyvalues,omitempty"` // 自定义键值对，omitempty 表示如果为空则不生成此字段
+}
+
+// NewPinataService 创建一个新的 PinataService 实例
 func NewPinataService(cfg config.Config) *PinataService {
 	return &PinataService{
 		cfg:        cfg,
-		// 设置 60 秒超时，防止大文件上传或网络问题导致服务挂起
-		httpClient: &http.Client{Timeout: 60 * time.Second},
+		httpClient: &http.Client{},
 	}
 }
 
-// UploadFile 将上传的文件流转发到 Pinata IPFS 节点
-// 参数:
-//   ctx: 上下文，用于控制请求生命周期
-//   file: 已经打开的文件流 (multipart.File)
-//   fileHeader: 包含文件名等元信息的文件头
-func (s *PinataService) UploadFile(ctx context.Context, file multipart.File, fileHeader *multipart.FileHeader) (UploadResult, error) {
-	// 1. 权限前置检查：确保 API 令牌已配置
+// UploadFile 将上传的文件流转发到 Pinata IPFS 节点，并附带自定义 Metadata
+func (s *PinataService) UploadFile(ctx context.Context, file multipart.File, fileHeader *multipart.FileHeader, fileHash string, customMetadata map[string]string) (UploadResult, error) {
+	// 1. 权限与前置规则检查
 	if s.cfg.PinataJWT == "" {
 		return UploadResult{}, ErrPinataJWTMissing
 	}
+	// 校验：限制自定义 metadata 最多只能有 3 个键值对
+	if len(customMetadata) > 3 {
+		return UploadResult{}, ErrTooManyMetadata
+	}
 
-	// 确保在函数退出时关闭输入文件流，防止内存泄漏
 	defer file.Close()
 
 	// 2. 构造 Multipart 表单数据
-	// Pinata 的 API 要求以 multipart/form-data 格式接收文件
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	// A. 创建文件字段 (字段名必须为 "file")
+	// A. 创建文件字段
 	part, err := writer.CreateFormFile("file", filepath.Base(fileHeader.Filename))
 	if err != nil {
 		return UploadResult{}, fmt.Errorf("create form file failed: %w", err)
 	}
 
-	// B. 将文件内容从输入流拷贝到 Multipart 表单流中
+	// B. 拷贝文件流
 	size, err := io.Copy(part, file)
 	if err != nil {
 		return UploadResult{}, fmt.Errorf("copy file content failed: %w", err)
 	}
 
-	// C. 添加 Pinata 元数据 (pinataMetadata)
-	// 这有助于在 Pinata 后台管理页面显示正确的文件名，而非只有哈希
-	metadata, err := writer.CreateFormField("pinataMetadata")
+	// C. 动态生成并添加 Pinata Metadata
+	metadataField, err := writer.CreateFormField("pinataMetadata")
 	if err != nil {
 		return UploadResult{}, fmt.Errorf("create metadata field failed: %w", err)
 	}
 
-	if _, err := metadata.Write([]byte(fmt.Sprintf(`{"name":"%s"}`, filepath.Base(fileHeader.Filename)))); err != nil {
+	// 将数据填入结构体
+	pm := PinataMetadata{
+		Name:      filepath.Base(fileHeader.Filename),
+		KeyValues: customMetadata, // 把用户传进来的 map 赋给 KeyValues
+	}
+
+	// 使用 json.Marshal 将结构体安全地转换为 JSON 字节流
+	pmBytes, err := json.Marshal(pm)
+	if err != nil {
+		return UploadResult{}, fmt.Errorf("marshal metadata failed: %w", err)
+	}
+
+	// 把生成的 JSON 字符串写入 metadata 隔层
+	if _, err := metadataField.Write(pmBytes); err != nil {
 		return UploadResult{}, err
 	}
 
-	// 必须关闭 writer 才能将最后的 boundary 写入 body
+	// 必须关闭 writer 写入最后的 boundary
 	if err := writer.Close(); err != nil {
 		return UploadResult{}, err
 	}
 
-	// 3. 构建并发送 HTTP POST 请求
+	// 3. 构建并发送 HTTP POST 请求 (后续逻辑保持不变)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.cfg.PinataUploadURL, body)
 	if err != nil {
 		return UploadResult{}, fmt.Errorf("create request failed: %w", err)
 	}
 
-	// 设置认证头 (Bearer Token 模式)
 	req.Header.Set("Authorization", "Bearer "+s.cfg.PinataJWT)
-	// 设置 Content-Type，必须包含特定的 multipart boundary
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	resp, err := s.httpClient.Do(req)
@@ -111,12 +125,10 @@ func (s *PinataService) UploadFile(ctx context.Context, file multipart.File, fil
 		return UploadResult{}, fmt.Errorf("read response body failed: %w", err)
 	}
 
-	// 处理非成功状态码
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return UploadResult{}, fmt.Errorf("pinata upload failed: status=%d body=%s", resp.StatusCode, string(respBody))
 	}
 
-	// 解析 Pinata 返回的 JSON (主要获取 IpfsHash)
 	var pinataResp struct {
 		IpfsHash string `json:"IpfsHash"`
 	}
@@ -124,12 +136,12 @@ func (s *PinataService) UploadFile(ctx context.Context, file multipart.File, fil
 		return UploadResult{}, fmt.Errorf("unmarshal response failed: %w", err)
 	}
 
-	// 5. 组装最终结果返回
+	// 5. 返回结果
 	return UploadResult{
 		CID:        pinataResp.IpfsHash,
+		FileHash:   fileHash,
 		FileName:   fileHeader.Filename,
 		FileSize:   size,
-		// 使用官方公共网关拼接访问地址
 		GatewayURL: "https://gateway.pinata.cloud/ipfs/" + pinataResp.IpfsHash,
 	}, nil
 }
