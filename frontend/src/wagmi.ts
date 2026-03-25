@@ -2,23 +2,36 @@ import { createConfig, http } from 'wagmi';
 import { injected, walletConnect } from 'wagmi/connectors';
 import { sepolia } from 'wagmi/chains';
 import type { EIP1193Provider } from 'viem';
+import type { InjectedParameters } from 'wagmi/connectors';
 
 export const walletConnectProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '3fcc6b144415893d5f22f036720f7796';
 
 const appOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
 
 type InjectedProvider = EIP1193Provider & {
-  isMetaMask?: boolean;
-  isBraveWallet?: boolean;
-  isRabby?: boolean;
-  isOkxWallet?: boolean;
-  isOKExWallet?: boolean;
+  isMetaMask?: true;
+  isBraveWallet?: true;
+  isRabby?: true;
+  isOkxWallet?: true;
+  isOKExWallet?: true;
   providers?: InjectedProvider[];
-  _events?: unknown;
-  _state?: unknown;
+  _events?: {
+    connect?: () => void;
+  };
+  _state?: {
+    accounts?: string[];
+    initialized?: boolean;
+    isConnected?: boolean;
+    isPermanentlyDisconnected?: boolean;
+    isUnlocked?: boolean;
+  };
 };
 
-const getInjectedProviders = (windowObject?: Window) => {
+type InjectedTarget = Extract<NonNullable<InjectedParameters['target']>, { provider: unknown }>;
+type InjectedTargetProvider = Extract<InjectedTarget['provider'], (...args: never[]) => unknown>;
+type InjectedWindow = Parameters<InjectedTargetProvider>[0];
+
+const getInjectedProviders = (windowObject?: InjectedWindow) => {
   const ethereum = windowObject?.ethereum as InjectedProvider | undefined;
   if (!ethereum) return [];
   if (Array.isArray(ethereum.providers) && ethereum.providers.length > 0) {
@@ -30,7 +43,7 @@ const getInjectedProviders = (windowObject?: Window) => {
 const findInjectedProvider = (
   matcher: (provider: InjectedProvider) => boolean,
 ) => {
-  return (windowObject?: Window) => {
+  return (windowObject?: InjectedWindow) => {
     const providers = getInjectedProviders(windowObject);
     return providers.find(matcher);
   };

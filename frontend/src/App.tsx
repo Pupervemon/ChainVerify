@@ -105,9 +105,9 @@ function App() {
     const availability: Record<string, boolean> = {
       walletConnect: true,
       injected: providers.length > 0,
-      metaMask: providers.some((provider) => Boolean(provider.isMetaMask)),
-      rabby: providers.some((provider) => Boolean(provider.isRabby)),
-      okxWallet: providers.some((provider) => Boolean(provider.isOkxWallet || provider.isOKExWallet)),
+      metaMask: providers.some((provider: EthereumProvider) => Boolean(provider.isMetaMask)),
+      rabby: providers.some((provider: EthereumProvider) => Boolean(provider.isRabby)),
+      okxWallet: providers.some((provider: EthereumProvider) => Boolean(provider.isOkxWallet || provider.isOKExWallet)),
     };
     setHasAnyInjectedWallet(providers.length > 0);
     setAvailableConnectorIds((current) => ({ ...current, ...availability }));
