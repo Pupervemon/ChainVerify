@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "compile": "npx hardhat compile",
+    "compile:sync": "npx hardhat compile && node scripts/sync-abi.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

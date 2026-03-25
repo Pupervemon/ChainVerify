@@ -1,0 +1,224 @@
+{
+	"compiler": {
+		"version": "0.8.30+commit.73712a01"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "fileHash",
+						"type": "bytes32"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "string",
+						"name": "cid",
+						"type": "string"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "string",
+						"name": "fileName",
+						"type": "string"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "fileSize",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "string",
+						"name": "contentType",
+						"type": "string"
+					}
+				],
+				"name": "ProofCreated",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "_fileHash",
+						"type": "bytes32"
+					}
+				],
+				"name": "getProof",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					},
+					{
+						"internalType": "string",
+						"name": "cid",
+						"type": "string"
+					},
+					{
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "_fileHash",
+						"type": "bytes32"
+					}
+				],
+				"name": "isProofExists",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					}
+				],
+				"name": "proofs",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					},
+					{
+						"internalType": "string",
+						"name": "cid",
+						"type": "string"
+					},
+					{
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "_fileHash",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "string",
+						"name": "_cid",
+						"type": "string"
+					},
+					{
+						"internalType": "string",
+						"name": "_fileName",
+						"type": "string"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_fileSize",
+						"type": "uint256"
+					},
+					{
+						"internalType": "string",
+						"name": "_contentType",
+						"type": "string"
+					}
+				],
+				"name": "storeProof",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "totalProofs",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"details": "针对 Go Indexer 架构优化的 Web3 原生存证合约。 核心原则：链上只存共识必须的最小数据，业务描述数据全部打入 Event 供链下索引。",
+			"kind": "dev",
+			"methods": {
+				"storeProof(bytes32,string,string,uint256,string)": {
+					"details": "存入凭证"
+				}
+			},
+			"title": "ProofStore",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"ProofStore.sol": "ProofStore"
+		},
+		"evmVersion": "prague",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"ProofStore.sol": {
+			"keccak256": "0x3d5c79a3c1baaede6202810d15878af6f12bde00e403e37a8c03a83c1634be95",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://86ee592ef2ce96637db6abd363c4aadd8ef452028508a3783a4b163f79573981",
+				"dweb:/ipfs/QmYwJW2FtBut8UnedRkzHgxV2QE98McbEjDn9HdQYfimdq"
+			]
+		}
+	},
+	"version": 1
+}

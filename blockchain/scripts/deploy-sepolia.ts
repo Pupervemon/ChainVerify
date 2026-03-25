@@ -1,11 +1,13 @@
-import hre from "hardhat";
+import hre, { network } from "hardhat";
 
 async function main() {
-  console.log("Starting deployment of ProofStore to Sepolia...");
-  
-  // Get wallet clients
-  const [deployer] = await hre.viem.getWalletClients();
-  const publicClient = await hre.viem.getPublicClient();
+  const connection = await network.connect(hre.network.name);
+  const { viem } = connection;
+
+  console.log(`Starting deployment of ProofStore to ${connection.networkName}...`);
+
+  const [deployer] = await viem.getWalletClients();
+  const publicClient = await viem.getPublicClient();
 
   if (!deployer) {
     throw new Error("No deployer account found");
@@ -16,8 +18,7 @@ async function main() {
   const balance = await publicClient.getBalance({ address: deployer.account.address });
   console.log(`Account balance: ${balance.toString()}`);
 
-  // Deploy ProofStore
-  const proofStore = await hre.viem.deployContract("ProofStore", []);
+  const proofStore = await viem.deployContract("ProofStore", []);
 
   console.log(`ProofStore deployed to: ${proofStore.address}`);
 }

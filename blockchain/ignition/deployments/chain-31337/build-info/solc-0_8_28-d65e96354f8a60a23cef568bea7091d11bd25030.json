@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-d65e96354f8a60a23cef568bea7091d11bd25030",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "userSourceNameMap": {
+    "contracts/ProofStore.sol": "project/contracts/ProofStore.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/ProofStore.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.19;\n\n/**\n * @title ProofStore\n * @dev File provenance registry that ties file hashes with IPFS CIDs.\n */\ncontract ProofStore {\n    uint256 private constant MAX_FILE_HASH_LENGTH = 66; // 0x + 64 hex chars\n    uint256 private constant MAX_FILE_NAME_LENGTH = 256;\n    uint256 private constant MAX_CONTENT_TYPE_LENGTH = 128;\n    uint256 private constant MAX_CID_LENGTH = 128;\n\n    struct Proof {\n        address walletAddress;\n        string fileHash;\n        string fileName;\n        uint256 fileSize;\n        string contentType;\n        string cid;\n        uint256 timestamp;\n    }\n\n    // Proofs are keyed by (owner address + file hash) to prevent front-running.\n    mapping(bytes32 => Proof) private proofs;\n\n    // Track every hash each user has notarized.\n    mapping(address => string[]) private userProofs;\n\n    // Maintain historical ordering for each hash to keep the legacy getProof API working.\n    mapping(string => bytes32[]) private proofKeysByHash;\n\n    uint256 public totalProofs;\n\n    event ProofCreated(\n        address indexed walletAddress,\n        string indexed fileHash,\n        string cid,\n        uint256 timestamp\n    );\n\n    /**\n     * @dev Store a proof for the caller.\n     */\n    function storeProof(\n        string memory _fileHash,\n        string memory _fileName,\n        uint256 _fileSize,\n        string memory _contentType,\n        string memory _cid\n    ) public {\n        _validateInputs(_fileHash, _fileName, _contentType, _cid);\n\n        bytes32 proofKey = _proofKey(msg.sender, _fileHash);\n        require(\n            proofs[proofKey].timestamp == 0,\n            \"ProofStore: sender already stored this hash\"\n        );\n\n        Proof memory newProof = Proof({\n            walletAddress: msg.sender,\n            fileHash: _fileHash,\n            fileName: _fileName,\n            fileSize: _fileSize,\n            contentType: _contentType,\n            cid: _cid,\n            timestamp: block.timestamp\n        });\n\n        proofs[proofKey] = newProof;\n        userProofs[msg.sender].push(_fileHash);\n        proofKeysByHash[_fileHash].push(proofKey);\n        totalProofs++;\n\n        emit ProofCreated(msg.sender, _fileHash, _cid, block.timestamp);\n    }\n\n    /**\n     * @dev Backward-compatible getter that returns the first proof ever recorded for a hash.\n     */\n    function getProof(\n        string memory _fileHash\n    ) public view returns (Proof memory) {\n        bytes32[] storage keys = proofKeysByHash[_fileHash];\n        require(keys.length > 0, \"ProofStore: proof not found\");\n        return proofs[keys[0]];\n    }\n\n    /**\n     * @dev Retrieve the proof stored by a specific wallet.\n     */\n    function getProofForUser(\n        address _user,\n        string memory _fileHash\n    ) public view returns (Proof memory) {\n        bytes32 proofKey = _proofKey(_user, _fileHash);\n        require(\n            proofs[proofKey].timestamp != 0,\n            \"ProofStore: proof not found\"\n        );\n        return proofs[proofKey];\n    }\n\n    /**\n     * @dev Return the list of hashes notarized by the provided wallet.\n     */\n    function getUserProofs(\n        address _user\n    ) public view returns (string[] memory) {\n        return userProofs[_user];\n    }\n\n    /**\n     * @dev Verify that the caller stored the hash and the CID matches.\n     */\n    function verifyProof(\n        string memory _fileHash,\n        string memory _cid\n    ) public view returns (bool) {\n        bytes32 proofKey = _proofKey(msg.sender, _fileHash);\n        Proof storage proof = proofs[proofKey];\n        if (proof.timestamp == 0) {\n            return false;\n        }\n\n        return keccak256(bytes(proof.cid)) == keccak256(bytes(_cid));\n    }\n\n    function _validateInputs(\n        string memory _fileHash,\n        string memory _fileName,\n        string memory _contentType,\n        string memory _cid\n    ) internal pure {\n        bytes memory hashBytes = bytes(_fileHash);\n        require(\n            hashBytes.length > 0 && hashBytes.length <= MAX_FILE_HASH_LENGTH,\n            \"ProofStore: invalid file hash length\"\n        );\n        require(\n            bytes(_fileName).length <= MAX_FILE_NAME_LENGTH,\n            \"ProofStore: file name too long\"\n        );\n        require(\n            bytes(_contentType).length <= MAX_CONTENT_TYPE_LENGTH,\n            \"ProofStore: content type too long\"\n        );\n        bytes memory cidBytes = bytes(_cid);\n        require(\n            cidBytes.length > 0 && cidBytes.length <= MAX_CID_LENGTH,\n            \"ProofStore: invalid cid length\"\n        );\n    }\n\n    function _proofKey(\n        address _owner,\n        string memory _fileHash\n    ) internal pure returns (bytes32) {\n        return keccak256(abi.encodePacked(_owner, _fileHash));\n    }\n}\n"
+      }
+    }
+  }
+}
