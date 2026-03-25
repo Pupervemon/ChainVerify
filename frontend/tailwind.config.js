@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+
+import tailwindAnimate from "tailwindcss-animate";
 export default {
   content: [
     "./index.html",
@@ -19,8 +21,11 @@ export default {
           800: '#5b21b6',
           900: '#4c1d95',
         },
-      }
+      },
+      // 补充：如果你想让动画更顺滑，可以在这里微调关键帧（可选）
     },
   },
-  plugins: [],
+  plugins: [
+    tailwindAnimate, // 2. 放入插件变量
+  ],
 }

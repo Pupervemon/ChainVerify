@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { X, ExternalLink } from "lucide-react";
 
 const BANNER_STORAGE_KEY = "hide-dencun-banner";

@@ -50,4 +50,8 @@
   .meta-label {
     @apply text-xs font-bold uppercase tracking-widest text-slate-400;
   }
+
+  .font-nav {
+    font-family: 'Lato', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
 }
