@@ -4,7 +4,6 @@ dotenv.config({ path: "../backend/.env" });
 
 import hardhatToolboxViemPlugin from "@nomicfoundation/hardhat-toolbox-viem";
 import { defineConfig } from "hardhat/config";
-import hardhatVerify from "@nomicfoundation/hardhat-verify";
 
 const sepoliaRpcUrl = (() => {
   const value = process.env.SEPOLIA_RPC_URL || "https://eth-sepolia.g.alchemy.com/v2/demo";
@@ -23,7 +22,7 @@ const sepoliaPrivateKey = (() => {
 })();
 
 export default defineConfig({
-  plugins: [hardhatToolboxViemPlugin, hardhatVerify],
+  plugins: [hardhatToolboxViemPlugin],
   solidity: {
     profiles: {
       default: {
@@ -59,11 +58,6 @@ export default defineConfig({
       chainType: "l1",
       url: sepoliaRpcUrl,
       accounts: [sepoliaPrivateKey],
-    },
-  },
-  verify: {
-    etherscan: {
-      apiKey: process.env.ETHERSCAN_API_KEY,
     },
   },
 });

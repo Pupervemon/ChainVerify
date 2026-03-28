@@ -1,7 +1,7 @@
-import hre, { network } from "hardhat";
+import { network } from "hardhat";
 
 async function main() {
-  const connection = await network.connect(hre.network.name);
+  const connection = await network.connect();
   const { viem } = connection;
 
   console.log(`Starting deployment of ProofStore to ${connection.networkName}...`);
