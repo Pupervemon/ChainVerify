@@ -15,35 +15,38 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ address }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const truncateAddress = (addr: string) => {
-    if (!addr) return "Wallet not connected";
-    if (addr.length <= 10) return addr;
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  };
-
   return (
-    <div className="mb-12 p-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2 text-slate-400">
-          <Fingerprint size={18} />
-          <span className="text-xs font-black uppercase tracking-[0.2em]">Wallet Address</span>
+    <div className="mb-12 p-10 bg-gradient-to-br from-white to-slate-50/50 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group">
+      <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-orange-500/10 transition-colors" />
+      <div className="absolute bottom-0 left-0 w-64 h-64 bg-red-500/5 rounded-full -ml-32 -mb-32 blur-3xl group-hover:bg-red-500/10 transition-colors" />
+      
+      <div className="relative flex flex-col gap-6">
+        <div className="flex items-center gap-3 text-orange-500">
+          <div className="p-2 bg-orange-100 rounded-lg">
+            <Fingerprint size={20} />
+          </div>
+          <span className="text-[11px] font-black uppercase tracking-[0.3em]">Account Identity</span>
         </div>
 
-        <div className="flex items-center gap-4">
-          <h2 className="text-3xl font-black text-[#1a1a1a] font-mono tracking-tight break-all">
-            {truncateAddress(address)}
-          </h2>
-          <button
-            onClick={copyToClipboard}
-            className="flex-shrink-0 p-3 hover:bg-slate-50 rounded-xl transition-all border border-transparent hover:border-slate-200 cursor-pointer group"
-            title="Copy address"
-          >
-            {copied ? (
-              <Check size={20} className="text-emerald-500" />
-            ) : (
-              <Copy size={20} className="text-slate-400 group-hover:text-[#1677ff]" />
-            )}
-          </button>
+        <div className="flex flex-col gap-4">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-sm md:text-base font-black text-slate-900 font-mono tracking-tight break-all leading-tight">
+                {address || "Not Connected"}
+              </h2>
+              <button
+                onClick={copyToClipboard}
+                className="inline-flex items-center justify-center p-2 bg-white hover:bg-slate-50 text-slate-600 rounded-xl transition-all border border-slate-200 hover:border-orange-200 shadow-sm active:scale-95 group/btn"
+              >
+                {copied ? (
+                  <Check size={16} className="text-emerald-500" />
+                ) : (
+                  <Copy size={16} className="group-hover/btn:text-orange-500 transition-colors" />
+                )}
+              </button>
+            </div>
+            <p className="text-slate-400 text-sm font-medium">Secured by Ethereum Smart Contracts</p>
+          </div>
         </div>
       </div>
     </div>

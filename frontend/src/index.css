@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -15,16 +16,25 @@
 
 @layer base {
   html {
-    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-  
-  body {
-    @apply bg-white text-slate-900 min-h-screen selection:bg-primary-100 selection:text-primary-900;
+    scrollbar-gutter: stable;
+    background:
+      radial-gradient(circle at top, rgba(249, 115, 22, 0.08), transparent 28%),
+      radial-gradient(circle at 85% 18%, rgba(59, 130, 246, 0.08), transparent 24%),
+      linear-gradient(180deg, #ffffff 0%, #f8fafc 42%, #f8fafc 100%);
   }
 
-  /* Define Typographic Scale */
+  body {
+    @apply min-h-screen text-slate-900 selection:bg-orange-100 selection:text-slate-900;
+    overflow-y: scroll;
+    background:
+      radial-gradient(circle at top, rgba(249, 115, 22, 0.06), transparent 22%),
+      radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.06), transparent 18%),
+      linear-gradient(180deg, #ffffff 0%, #f8fafc 35%, #f8fafc 100%);
+  }
+
   h1 {
     @apply text-5xl font-black tracking-tighter leading-[1.1];
   }
@@ -40,18 +50,310 @@
 
 @layer components {
   .btn-primary {
-    @apply px-6 py-3 bg-primary-600 text-white rounded-xl font-bold tracking-wide hover:bg-primary-700 transition-all active:scale-[0.98] disabled:opacity-50;
+    @apply rounded-xl bg-cyan-400 px-6 py-3 font-bold tracking-wide text-slate-950 transition-all hover:bg-cyan-300 active:scale-[0.98] disabled:opacity-50;
   }
-  
+
   .glass-card {
-    @apply bg-white/70 backdrop-blur-2xl rounded-[2.5rem] border border-white/40 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)];
+    @apply rounded-[2rem] border border-white/10 bg-white/6 backdrop-blur-2xl shadow-[0_28px_80px_-32px_rgba(5,15,25,0.95)];
   }
 
   .meta-label {
-    @apply text-xs font-bold uppercase tracking-widest text-slate-400;
+    @apply text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400;
   }
 
   .font-nav {
-    font-family: 'Lato', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-family: "Space Grotesk", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  .connected-address {
+    display: inline-flex;
+    align-items: center;
+    font-family: "JetBrains Mono", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 14.4px;
+    letter-spacing: 0.02em;
+    color: #334155;
+    opacity: 1;
+  }
+
+  .panel-surface {
+    @apply rounded-[2rem] border border-slate-100 bg-white shadow-[0_24px_60px_-32px_rgba(15,23,42,0.12)];
+  }
+
+  .panel-soft {
+    @apply rounded-[1.5rem] border border-slate-100 bg-slate-50/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)];
+  }
+
+  .passport-layout {
+    display: grid;
+    grid-template-columns: 215.2px minmax(0, 1fr);
+    align-items: start;
+    min-height: calc(100vh - 96px);
+    transition: grid-template-columns 180ms ease;
+  }
+
+  .passport-layout.is-collapsed {
+    grid-template-columns: 70px minmax(0, 1fr);
+  }
+
+  .passport-sidebar {
+    position: sticky;
+    top: 72px;
+    align-self: start;
+    width: 215.2px;
+    min-height: calc(100vh - 72px);
+    padding: 16px;
+    background: #ffffff;
+    border-right: 1px solid #e5e7eb;
+    transition: width 180ms ease;
+  }
+
+  .passport-sidebar.is-collapsed {
+    width: 70px;
+  }
+
+  .passport-main {
+    min-width: 0;
+    padding: 2.5rem 2rem 3rem;
+    background: #f9fafb;
+  }
+
+  .passport-main .shadow-sm {
+    box-shadow: none !important;
+  }
+
+  .passport-main .glass-card,
+  .passport-main .panel-surface {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .passport-main [class*="rounded-[2.5rem]"][class*="bg-white"],
+  .passport-main [class*="rounded-[2.5rem]"][class*="bg-[linear-gradient"],
+  .passport-main [class*="rounded-[2.75rem]"] {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  .passport-dashboard-hero-shell {
+    padding: 0 36px;
+  }
+
+  .passport-dashboard-hero {
+    position: relative;
+    width: 100%;
+    max-width: 1900.8px;
+    min-height: 432px;
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: 40px;
+    background:
+      linear-gradient(0deg, rgba(251, 146, 60, 0.32) 0%, rgba(255, 237, 213, 0.08) 42%, rgba(255, 255, 255, 0) 100%),
+      linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 247, 237, 0.88) 100%);
+    border: 1px solid rgba(251, 146, 60, 0.16);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.72),
+      0 28px 80px -44px rgba(194, 65, 12, 0.36);
+  }
+
+  .passport-dashboard-hero__glow {
+    position: absolute;
+    inset: auto auto -148px -96px;
+    width: 420px;
+    height: 420px;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(249, 115, 22, 0.26) 0%, rgba(249, 115, 22, 0) 72%);
+    pointer-events: none;
+  }
+
+  .passport-dashboard-hero__content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-height: 432px;
+    padding: 48px 56px;
+    gap: 24px;
+  }
+
+  .passport-dashboard-hero__eyebrow {
+    display: inline-flex;
+    width: fit-content;
+    padding: 10px 16px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.66);
+    border: 1px solid rgba(251, 146, 60, 0.18);
+    color: #c2410c;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.24em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .passport-dashboard-hero__title {
+    max-width: 960px;
+    margin: 0;
+    font-family: "Space Grotesk", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: clamp(2.5rem, 4vw, 4.5rem);
+    font-weight: 700;
+    line-height: 1.02;
+    letter-spacing: -0.05em;
+    color: #7c2d12;
+  }
+
+  .passport-dashboard-hero__description {
+    max-width: 760px;
+    margin: 0;
+    color: rgba(124, 45, 18, 0.82);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.8;
+  }
+
+  .passport-dashboard-hero__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .passport-dashboard-hero__meta-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 144px;
+    padding: 14px 18px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.54);
+    border: 1px solid rgba(251, 146, 60, 0.14);
+    backdrop-filter: blur(10px);
+  }
+
+  .passport-dashboard-hero__meta-label {
+    color: rgba(154, 52, 18, 0.72);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .passport-dashboard-hero__meta-value {
+    color: #7c2d12;
+    font-family: "Space Grotesk", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  @media (max-width: 1279px) {
+    .passport-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .passport-sidebar {
+      position: static;
+      min-height: auto;
+      border-right: 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .passport-main {
+      padding: 2rem 1rem 2.5rem;
+    }
+
+    .passport-dashboard-hero-shell {
+      padding: 0 20px;
+    }
+
+    .passport-dashboard-hero {
+      min-height: 380px;
+      border-radius: 32px;
+    }
+
+    .passport-dashboard-hero__content {
+      min-height: 380px;
+      padding: 40px 28px;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .passport-dashboard-hero-shell {
+      padding: 0 12px;
+    }
+
+    .passport-dashboard-hero {
+      min-height: 340px;
+      border-radius: 28px;
+    }
+
+    .passport-dashboard-hero__content {
+      min-height: 340px;
+      padding: 32px 20px 24px;
+      gap: 18px;
+    }
+
+    .passport-dashboard-hero__description {
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .passport-dashboard-hero__meta {
+      gap: 10px;
+    }
+
+    .passport-dashboard-hero__meta-card {
+      min-width: calc(50% - 5px);
+    }
+  }
+
+  .accent-grid {
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  @keyframes status-pulse {
+    0% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+    70% {
+      transform: scale(1);
+      box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
+    100% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+  }
+
+  @keyframes status-pulse-amber {
+    0% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+    }
+    70% {
+      transform: scale(1);
+      box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+    }
+    100% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+    }
+  }
+
+  .animate-status-pulse {
+    animation: status-pulse 2s infinite;
+  }
+
+  .animate-status-pulse-amber {
+    animation: status-pulse-amber 2s infinite;
   }
 }

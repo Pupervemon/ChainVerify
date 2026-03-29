@@ -2,15 +2,12 @@ import React, { useState } from "react";
 import { 
   Copy, 
   CheckCircle2, 
+  Check,
   ChevronDown, 
-  ChevronUp, 
-  FileCode, 
-  Info,
+  FileCode,
   ShieldCheck,
   Globe,
-  ArrowLeft,
-  Share2,
-  Printer
+  ExternalLink,
 } from "lucide-react";
 import type { Proof } from "../types/proof";
 
@@ -37,32 +34,47 @@ const ProofExplorer: React.FC<ProofExplorerProps> = ({ proof, onBack }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const InfoRow = ({ label, value, isLink = false, href = "", copyValue = "" }: { 
+  const statusBadges = [
+    { label: "Match", icon: CheckCircle2 },
+    { label: "Runtime Bytecode", icon: ShieldCheck },
+    { label: "Immutable Record", icon: Globe },
+  ];
+
+  const InfoRow = ({ label, value, isLink = false, href = "", copyValue = "", isMonospace = false, isEmphasized = false, rowIndex = 0 }: { 
     label: string; 
     value: string | number; 
     isLink?: boolean; 
     href?: string;
     copyValue?: string;
+    isMonospace?: boolean;
+    isEmphasized?: boolean;
+    rowIndex?: number;
   }) => (
-    <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] py-4 border-b border-slate-100 last:border-0 group">
-      <div className="flex items-center gap-2 text-slate-500 font-medium text-[13px]">
-        <Info size={14} className="opacity-0 group-hover:opacity-40 transition-opacity" />
+    <div className={`grid grid-cols-1 md:grid-cols-[180px_minmax(0,1fr)] gap-2 md:gap-5 px-6 md:px-8 py-2 md:min-h-[48px] border-b border-slate-100 last:border-0 items-start md:items-center ${rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50/70"}`}>
+      <div className="font-['IBM_Plex_Sans',sans-serif] text-[16px] font-bold leading-6 text-[oklch(0.21_0.034_264.665)]">
         {label}
       </div>
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-3 min-w-0 mt-1 md:mt-0">
         {isLink ? (
-          <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 font-semibold text-[13px] truncate">
+          <a 
+            href={href} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="truncate flex items-center gap-1.5 transition-colors group text-[16px] font-['IBM_Plex_Sans',sans-serif] text-gray-900"
+          >
             {value}
+            <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
           </a>
         ) : (
-          <span className="text-slate-900 font-semibold text-[13px] truncate">{value}</span>
+          <span className="truncate text-[16px] font-['IBM_Plex_Sans',sans-serif] text-gray-900">{value}</span>
         )}
         {copyValue && (
           <button 
             onClick={() => copyToClipboard(copyValue, label)}
-            className="p-1 hover:bg-slate-100 text-slate-300 hover:text-slate-600 rounded transition-all"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 hover:text-slate-700 transition-all shrink-0"
+            title={`Copy ${label}`}
           >
-            <Copy size={12} className={copiedField === label ? "text-emerald-500" : ""} />
+            {copiedField === label ? <CheckCircle2 size={14} className="text-emerald-600" /> : <Copy size={14} />}
           </button>
         )}
       </div>
@@ -70,103 +82,121 @@ const ProofExplorer: React.FC<ProofExplorerProps> = ({ proof, onBack }) => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans selection:bg-blue-100">
-      {/* 顶部导航与 Header */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-        <button 
-          onClick={onBack}
-          className="flex items-center gap-2 text-slate-400 hover:text-slate-600 text-xs font-bold uppercase tracking-wider mb-6 transition-colors"
-        >
-          <ArrowLeft size={14} /> Back
-        </button>
-
-        <div className="flex flex-col gap-4 mb-8">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-slate-900 font-mono tracking-tight flex items-center gap-2 min-w-0">
-              <span className="truncate">{proof.file_hash}</span>
-              <button 
-                onClick={() => copyToClipboard(proof.file_hash, "hash")}
-                className="p-1.5 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition-all shadow-sm"
-              >
-                <Copy size={16} />
-              </button>
+    <div className="min-h-screen bg-[#F8FAFC] font-sans selection:bg-primary-100 pb-20">
+      {/* 顶部纯净背景装饰 */}
+      <div className="absolute top-0 left-0 w-full h-[400px] bg-gradient-to-b from-white to-[#F8FAFC] -z-10" />
+      
+      {/* 顶部操作条 */}
+      <main className="max-w-[1408px] mx-auto px-6 pt-[24px] pb-[96px]">
+        {/* 核心认证状态展示 (Hero Success Section) */}
+        <div className="flex flex-col items-start text-left mb-6">
+          <div className="flex items-start gap-3 mb-1">
+            <h1 className="text-base break-all md:text-2xl font-bold font-mono text-gray-900 tracking-tight">
+              {proof.file_hash}
             </h1>
-            <span className="text-slate-400 text-sm font-medium">(Sepolia Network)</span>
+            <button
+              onClick={() => copyToClipboard(proof.file_hash, "hero-hash")}
+              className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 hover:text-slate-700 transition-all"
+              title="Copy proof hash"
+            >
+              {copiedField === "hero-hash" ? <CheckCircle2 size={16} className="text-emerald-600" /> : <Copy size={16} />}
+            </button>
           </div>
-
-          {/* 状态栏 Status Bar */}
-          <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500 text-white rounded-md text-[11px] font-bold shadow-sm shadow-emerald-100">
-              <CheckCircle2 size={12} />
-              Exact Match
-            </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[11px] font-bold bg-white">
-              <ShieldCheck size={12} />
-              Verified On-Chain
-            </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 border border-slate-200 text-slate-500 rounded-md text-[11px] font-bold bg-white">
-              <Globe size={12} />
-              IPFS Available
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 主数据卡片 */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 relative">
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6">
-          <div className="p-6 md:p-8">
-            <InfoRow label="Asset Name" value={proof.file_name} />
-            <InfoRow label="Content Type" value={proof.content_type || "application/octet-stream"} />
-            <InfoRow label="File Size" value={formatSize(proof.file_size)} />
-            <InfoRow 
-              label="Transaction Hash" 
-              value={proof.tx_hash || "Pending..."} 
-              isLink={!!proof.tx_hash}
-              href={`https://sepolia.etherscan.io/tx/${proof.tx_hash}`}
-              copyValue={proof.tx_hash}
-            />
-            <InfoRow label="Block Number" value={proof.block_number || "Awaiting Confirmation"} />
-            <InfoRow 
-              label="IPFS CID" 
-              value={proof.cid} 
-              isLink 
-              href={`https://gateway.pinata.cloud/ipfs/${proof.cid}`}
-              copyValue={proof.cid}
-            />
-            <InfoRow 
-              label="Wallet Address" 
-              value={proof.wallet_address} 
-              isLink
-              href={`https://sepolia.etherscan.io/address/${proof.wallet_address}`}
-              copyValue={proof.wallet_address}
-            />
-            <InfoRow 
-              label="Proof Timestamp" 
-              value={new Date(proof.timestamp).toLocaleString(undefined, { 
-                dateStyle: 'full', 
-                timeStyle: 'medium' 
-              })} 
-            />
+          <p className="text-slate-500 text-base font-medium mb-2">On Ethereum Sepolia</p>
+          <div className="flex flex-wrap items-center gap-5">
+            {statusBadges.map(({ label, icon: Icon }) => (
+              <div key={label} className={label === "Match" ? "inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800" : "inline-flex items-center gap-2 text-slate-500"}>
+                {label === "Match" ? (
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-700 text-white">
+                    <Check size={14} strokeWidth={3} />
+                  </span>
+                ) : (
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white">
+                    <Check size={10} strokeWidth={3} />
+                  </span>
+                )}
+                <span className={label === "Match" ? "text-[14px] font-bold tracking-tight" : "text-[12px] font-medium tracking-tight"}>{label}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* 折叠面板 (Accordion) - 元数据/源码部分 */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* 认证卡片 */}
+        <div className="bg-white rounded-2xl border-0 shadow-sm overflow-hidden mb-10">
+          {/* 卡片头部：主要哈希展示 */}
+          {/* 卡片详情 */}
+          <div>
+            <div className="grid grid-cols-1">
+              <InfoRow label="Asset Name" value={proof.file_name} rowIndex={0} />
+              <InfoRow label="Content Type" value={proof.content_type || "application/octet-stream"} rowIndex={1} />
+              <InfoRow label="File Size" value={formatSize(proof.file_size)} rowIndex={2} />
+              <InfoRow 
+                label="On-Chain Transaction" 
+                value={proof.tx_hash ? `${proof.tx_hash.slice(0, 18)}...${proof.tx_hash.slice(-12)}` : "Awaiting Confirmation"} 
+                isLink={!!proof.tx_hash}
+                href={`https://sepolia.etherscan.io/tx/${proof.tx_hash}`}
+                copyValue={proof.tx_hash}
+                isMonospace={!!proof.tx_hash}
+                isEmphasized={!!proof.tx_hash}
+                rowIndex={3}
+              />
+              <InfoRow label="Block Number" value={proof.block_number || "Awaiting Confirmation"} rowIndex={4} />
+              <InfoRow 
+                label="IPFS Storage (CID)" 
+                value={proof.cid} 
+                isLink 
+                href={`https://gateway.pinata.cloud/ipfs/${proof.cid}`}
+                copyValue={proof.cid}
+                isMonospace
+                isEmphasized
+                rowIndex={5}
+              />
+              <InfoRow 
+                label="Notarized By" 
+                value={proof.wallet_address} 
+                isLink
+                href={`https://sepolia.etherscan.io/address/${proof.wallet_address}`}
+                copyValue={proof.wallet_address}
+                isMonospace
+                isEmphasized
+                rowIndex={6}
+              />
+              <InfoRow 
+                label="Timestamp" 
+                value={new Date(proof.timestamp).toLocaleString(undefined, { 
+                  dateStyle: 'full', 
+                  timeStyle: 'medium' 
+                })} 
+                rowIndex={7}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 元数据与 ABI (高级视图) */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden border-0">
           <button 
             onClick={() => setIsMetadataExpanded(!isMetadataExpanded)}
-            className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors border-b border-transparent group"
+            className="w-full flex items-center justify-between px-6 md:px-8 py-5 hover:bg-slate-50 transition-colors group"
           >
-            <div className="flex items-center gap-2.5">
-              <FileCode size={18} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
-              <span className="text-sm font-bold text-slate-700 uppercase tracking-wider">Proof Metadata & Integration ABI</span>
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 group-hover:text-primary-400 transition-colors">
+                <FileCode size={20} />
+              </div>
+              <div className="text-left">
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">ABI</h3>
+                <p className="text-xs text-slate-500 font-bold">Expand to view</p>
+              </div>
             </div>
-            {isMetadataExpanded ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+            <div className={`w-8 h-8 rounded-full border-0 flex items-center justify-center text-slate-500 transition-all ${isMetadataExpanded ? "rotate-180" : ""}`}>
+              <ChevronDown size={16} />
+            </div>
           </button>
           
-          <div className={`transition-all duration-300 ease-in-out ${isMetadataExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"} overflow-hidden bg-slate-900`}>
-            <div className="p-6">
-              <pre className="text-[12px] font-mono text-slate-300 bg-slate-800/50 p-6 rounded-lg border border-slate-700 overflow-x-auto leading-relaxed">
+          <div className={`transition-all duration-500 ease-in-out ${isMetadataExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"} overflow-hidden`}>
+            <div className="px-6 pb-8 border-t border-slate-100">
+              <div className="relative">
+                <pre className="mt-6 text-[12px] font-mono text-slate-700 bg-slate-50 p-6 rounded-xl border-0 overflow-x-auto leading-relaxed scrollbar-hide">
 {`{
   "protocol": "DeProof-V1",
   "hashing_algorithm": "SHA-256",
@@ -181,43 +211,40 @@ const ProofExplorer: React.FC<ProofExplorerProps> = ({ proof, onBack }) => {
     "contract": "${CONTRACT_ADDRESS}"
   }
 }`}
-              </pre>
-              <div className="mt-4 flex gap-3">
-                <button className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors border border-slate-700 px-3 py-1.5 rounded-md hover:border-slate-500">
-                  Copy Metadata
+                </pre>
+                <button 
+                  onClick={() => copyToClipboard(JSON.stringify({ protocol: "DeProof-V1", hash: proof.file_hash, cid: proof.cid }, null, 2), "metadata")}
+                  className="absolute top-10 right-4 p-2 text-slate-400 hover:text-slate-700 transition-colors"
+                >
+                  <Copy size={16} />
                 </button>
-                <button className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors border border-slate-700 px-3 py-1.5 rounded-md hover:border-slate-500">
-                  Verify Contract Source
+              </div>
+              <div className="mt-6 flex flex-wrap gap-4">
+                <button className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">
+                  Download JSON Proof
+                </button>
+                <button className="px-6 py-2.5 border border-slate-200 hover:border-slate-300 text-slate-600 hover:text-slate-900 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2">
+                  <ShieldCheck size={14} /> Verify Contract
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* 悬浮圆形功能按钮 (Floating Action Buttons) */}
-        <div className="fixed bottom-8 right-8 flex flex-col gap-3 z-50">
-          <button 
-            title="Print Proof"
-            className="w-12 h-12 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-500 hover:text-blue-600 hover:shadow-lg transition-all shadow-md group"
-            onClick={() => window.print()}
-          >
-            <Printer size={20} />
-          </button>
-          <button 
-            title="Share"
-            className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white hover:bg-blue-700 hover:shadow-xl transition-all shadow-lg"
-          >
-            <Share2 size={20} />
-          </button>
+        {/* 底部版权/装饰 */}
+        <div className="mt-16 flex flex-col items-center gap-6">
+           <div className="flex items-center gap-2 text-slate-300">
+              <div className="w-10 h-px bg-slate-200" />
+              <ShieldCheck size={20} className="opacity-20" />
+              <div className="w-10 h-px bg-slate-200" />
+           </div>
+           <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">
+             Secured by DeProof Protocol © 2026
+           </p>
         </div>
       </main>
 
-      {/* 页脚 */}
-      <footer className="max-w-7xl mx-auto px-4 py-12 border-t border-slate-200">
-        <p className="text-center text-slate-400 text-xs font-medium uppercase tracking-[0.2em]">
-          Secured by DeProof Protocol © 2026
-        </p>
-      </footer>
+      {/* 悬浮功能按钮 (Floating Action Buttons) - 更加现代 */}
     </div>
   );
 };

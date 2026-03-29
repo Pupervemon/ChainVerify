@@ -1,0 +1,846 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "initialOwner",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "NotOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroAddress",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "assetPassport",
+          "type": "address"
+        }
+      ],
+      "name": "AssetPassportUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "chronicle",
+          "type": "address"
+        }
+      ],
+      "name": "ChronicleUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "issuer",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "policyCID",
+          "type": "string"
+        }
+      ],
+      "name": "GlobalIssuerPolicySet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "operator",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "name": "PassportCreatorSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "passportId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "name": "PassportIssuerAllowlistModeSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "issuer",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "passportId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "policyCID",
+          "type": "string"
+        }
+      ],
+      "name": "PassportIssuerPolicySet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "operator",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "name": "RevocationOperatorSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "stampTypeId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "admin",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "name": "StampTypeAdminSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "issuer",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "stampTypeId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "policyCID",
+          "type": "string"
+        }
+      ],
+      "name": "TypeIssuerPolicySet",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "assetPassport",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "operator",
+          "type": "address"
+        }
+      ],
+      "name": "canCreatePassport",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "issuer",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "stampTypeId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "passportId",
+          "type": "uint256"
+        }
+      ],
+      "name": "canIssue",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "operator",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "stampId",
+          "type": "uint256"
+        }
+      ],
+      "name": "canRevoke",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "chronicle",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "issuer",
+          "type": "address"
+        }
+      ],
+      "name": "globalIssuerPolicyOf",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bool",
+              "name": "enabled",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint64",
+              "name": "validAfter",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "validUntil",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bool",
+              "name": "restrictToExplicitPassportList",
+              "type": "bool"
+            },
+            {
+              "internalType": "string",
+              "name": "policyCID",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct PassportTypes.IssuerPolicy",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "operator",
+          "type": "address"
+        }
+      ],
+      "name": "isPassportCreator",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "operator",
+          "type": "address"
+        }
+      ],
+      "name": "isRevocationOperator",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "stampTypeId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "admin",
+          "type": "address"
+        }
+      ],
+      "name": "isStampTypeAdmin",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "passportId",
+          "type": "uint256"
+        }
+      ],
+      "name": "passportAllowlistMode",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "issuer",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "passportId",
+          "type": "uint256"
+        }
+      ],
+      "name": "passportIssuerPolicyOf",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bool",
+              "name": "enabled",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint64",
+              "name": "validAfter",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "validUntil",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bool",
+              "name": "restrictToExplicitPassportList",
+              "type": "bool"
+            },
+            {
+              "internalType": "string",
+              "name": "policyCID",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct PassportTypes.IssuerPolicy",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "assetPassport_",
+          "type": "address"
+        }
+      ],
+      "name": "setAssetPassport",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "chronicle_",
+          "type": "address"
+        }
+      ],
+      "name": "setChronicle",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "issuer",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "bool",
+              "name": "enabled",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint64",
+              "name": "validAfter",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "validUntil",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bool",
+              "name": "restrictToExplicitPassportList",
+              "type": "bool"
+            },
+            {
+              "internalType": "string",
+              "name": "policyCID",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct PassportTypes.IssuerPolicy",
+          "name": "policy",
+          "type": "tuple"
+        }
+      ],
+      "name": "setGlobalIssuerPolicy",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "passportId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "name": "setPassportAllowlistMode",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "operator",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "name": "setPassportCreator",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "issuer",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "passportId",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "bool",
+              "name": "enabled",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint64",
+              "name": "validAfter",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "validUntil",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bool",
+              "name": "restrictToExplicitPassportList",
+              "type": "bool"
+            },
+            {
+              "internalType": "string",
+              "name": "policyCID",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct PassportTypes.IssuerPolicy",
+          "name": "policy",
+          "type": "tuple"
+        }
+      ],
+      "name": "setPassportIssuerPolicy",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "operator",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "name": "setRevocationOperator",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "stampTypeId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "admin",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "name": "setStampTypeAdmin",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "issuer",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "stampTypeId",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "bool",
+              "name": "enabled",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint64",
+              "name": "validAfter",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "validUntil",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bool",
+              "name": "restrictToExplicitPassportList",
+              "type": "bool"
+            },
+            {
+              "internalType": "string",
+              "name": "policyCID",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct PassportTypes.IssuerPolicy",
+          "name": "policy",
+          "type": "tuple"
+        }
+      ],
+      "name": "setTypeIssuerPolicy",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "issuer",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "stampTypeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "typeIssuerPolicyOf",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bool",
+              "name": "enabled",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint64",
+              "name": "validAfter",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "validUntil",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bool",
+              "name": "restrictToExplicitPassportList",
+              "type": "bool"
+            },
+            {
+              "internalType": "string",
+              "name": "policyCID",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct PassportTypes.IssuerPolicy",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "chainId": 31337,
+  "contractName": "PassportAuthority",
+  "deployedAt": "2026-03-29T10:56:27.753Z",
+  "network": "localhost",
+  "sourceName": "contracts/passport/PassportAuthority.sol"
+}
