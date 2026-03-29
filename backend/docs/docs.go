@@ -67,6 +67,80 @@ const docTemplate = `{
                 }
             }
         },
+        "/ipfs/upload": {
+            "post": {
+                "description": "统一 IPFS 上传入口。默认执行普通上传；当 query 参数 scene=proof 时，会先进行存证重复校验再上传。",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "存储"
+                ],
+                "summary": "上传文件到 IPFS",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "待上传文件",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "可选 metadata JSON 字符串",
+                        "name": "metadata",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "上传场景，proof 表示启用重复校验",
+                        "name": "scene",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "文件上传成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.UploadResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "内部服务配置错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "502": {
+                        "description": "上游服务错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/proofs": {
             "get": {
                 "description": "根据钱包地址、分页获取存证记录",
@@ -243,68 +317,6 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/store/upload": {
-            "post": {
-                "description": "通过 Pinata 服务将文件上传至 IPFS，并获取文件哈希",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "存储"
-                ],
-                "summary": "上传文件到 IPFS",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "待上传文件",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "文件上传成功",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/service.UploadResult"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "内部服务配置错误",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "502": {
-                        "description": "上游服务错误",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
@@ -379,10 +391,18 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "code": {
+                    "description": "业务状态码 (如 200, 4001, 5002 等)",
                     "type": "integer"
                 },
-                "data": {},
+                "data": {
+                    "description": "成功的业务数据"
+                },
+                "error": {
+                    "description": "详细的错误调试信息 (可选)",
+                    "type": "string"
+                },
                 "message": {
+                    "description": "给前端显示的提示信息",
                     "type": "string"
                 }
             }
@@ -392,6 +412,10 @@ const docTemplate = `{
             "properties": {
                 "cid": {
                     "description": "IPFS 唯一内容标识符 (Hash)",
+                    "type": "string"
+                },
+                "file_hash": {
+                    "description": "后端计算的文件 SHA256 哈希",
                     "type": "string"
                 },
                 "file_name": {

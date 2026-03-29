@@ -34,7 +34,7 @@ func New(cfg config.Config, h *handler.Handler) *gin.Engine {
 
 	v1 := engine.Group(cfg.BasePath)
 	{
-		v1.POST("/store/upload", h.UploadToIPFS)
+		v1.POST("/ipfs/upload", h.UploadIPFS)
 		v1.GET("/proofs", h.ListProofs)
 		v1.GET("/proofs/:file_hash", h.GetProof)
 		v1.GET("/stats", h.GetStats)
