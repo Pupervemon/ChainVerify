@@ -8,7 +8,7 @@
     "compile:sync": "npx hardhat compile && node scripts/sync-abi.js",
     "deploy:passport:localhost": "npx hardhat run --network localhost scripts/deploy-passport.ts",
     "deploy:passport:sepolia": "npx hardhat run --network sepolia scripts/deploy-passport.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx hardhat test"
   },
   "keywords": [],
   "author": "",
