@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
@@ -8,6 +9,10 @@ import {
   PASSPORT_AUTHORITY_ADDRESS,
 } from "../../../config/passport";
 import { usePassportLocale } from "../i18n";
+import {
+  getPassportAuthorityOwnerQueryKey,
+  PASSPORT_READ_CACHE_STALE_TIME,
+} from "../utils/passportReadCache";
 
 type UsePassportRevocationOperatorAdminOptions = {
   address?: string;
@@ -35,12 +40,18 @@ export function usePassportRevocationOperatorAdmin(
 ): UsePassportRevocationOperatorAdminResult {
   const { t } = usePassportLocale();
   const { address, ensureSupportedChain, hasCorrectChain, isConnected } = options;
+  const queryClient = useQueryClient();
   const publicClient = usePublicClient();
   const isConfigured = arePassportContractsConfigured();
-  const [authorityOwner, setAuthorityOwner] = useState("");
+  const cachedAuthorityOwner = isConfigured
+    ? queryClient.getQueryData<string>(getPassportAuthorityOwnerQueryKey())
+    : undefined;
+  const [authorityOwner, setAuthorityOwner] = useState(cachedAuthorityOwner ?? "");
   const [error, setError] = useState("");
   const [isCheckingOperator, setIsCheckingOperator] = useState(false);
-  const [isLoadingAuthorityOwner, setIsLoadingAuthorityOwner] = useState(false);
+  const [isLoadingAuthorityOwner, setIsLoadingAuthorityOwner] = useState(
+    () => isConfigured && cachedAuthorityOwner === undefined,
+  );
   const [operatorStatus, setOperatorStatus] = useState<boolean | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [lastSubmittedEnabled, setLastSubmittedEnabled] = useState<boolean | null>(null);
@@ -61,19 +72,37 @@ export function usePassportRevocationOperatorAdmin(
     address.toLowerCase() === authorityOwner.toLowerCase();
 
   const loadAuthorityOwner = useCallback(async () => {
-    if (!publicClient || !isConfigured) {
+    if (!isConfigured) {
       setAuthorityOwner("");
+      setIsLoadingAuthorityOwner(false);
       return;
     }
 
-    setIsLoadingAuthorityOwner(true);
+    if (!publicClient) {
+      return;
+    }
+
+    const queryKey = getPassportAuthorityOwnerQueryKey();
+    const cachedOwner = queryClient.getQueryData<string>(queryKey);
+
+    if (cachedOwner !== undefined) {
+      setAuthorityOwner(cachedOwner);
+      setIsLoadingAuthorityOwner(false);
+    } else {
+      setIsLoadingAuthorityOwner(true);
+    }
 
     try {
-      const owner = (await publicClient.readContract({
-        address: PASSPORT_AUTHORITY_ADDRESS as `0x${string}`,
-        abi: PASSPORT_AUTHORITY_ABI,
-        functionName: "owner",
-      })) as string;
+      const owner = await queryClient.fetchQuery({
+        queryKey,
+        queryFn: async () =>
+          (await publicClient.readContract({
+            address: PASSPORT_AUTHORITY_ADDRESS as `0x${string}`,
+            abi: PASSPORT_AUTHORITY_ABI,
+            functionName: "owner",
+          })) as string,
+        staleTime: PASSPORT_READ_CACHE_STALE_TIME,
+      });
 
       setAuthorityOwner(owner);
     } catch (loadError) {
@@ -86,7 +115,7 @@ export function usePassportRevocationOperatorAdmin(
     } finally {
       setIsLoadingAuthorityOwner(false);
     }
-  }, [isConfigured, publicClient]);
+  }, [isConfigured, publicClient, queryClient, t]);
 
   const loadRevocationOperatorStatus = useCallback(
     async (operatorAddress: string) => {
@@ -185,6 +214,19 @@ export function usePassportRevocationOperatorAdmin(
       writeContractAsync,
     ],
   );
+
+  useEffect(() => {
+    if (!isConfigured) {
+      setAuthorityOwner("");
+      setIsLoadingAuthorityOwner(false);
+      return;
+    }
+
+    const cachedOwner = queryClient.getQueryData<string>(getPassportAuthorityOwnerQueryKey());
+
+    setAuthorityOwner(cachedOwner ?? "");
+    setIsLoadingAuthorityOwner(cachedOwner === undefined);
+  }, [isConfigured, queryClient]);
 
   useEffect(() => {
     void loadAuthorityOwner();

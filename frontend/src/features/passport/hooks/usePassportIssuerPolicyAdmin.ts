@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
@@ -8,6 +9,10 @@ import {
   PASSPORT_AUTHORITY_ADDRESS,
 } from "../../../config/passport";
 import { usePassportLocale } from "../i18n";
+import {
+  getPassportAuthorityOwnerQueryKey,
+  PASSPORT_READ_CACHE_STALE_TIME,
+} from "../utils/passportReadCache";
 
 export type IssuerPolicyScope = "global" | "type" | "passport";
 
@@ -54,6 +59,7 @@ type UsePassportIssuerPolicyAdminResult = {
   isLoadingAuthorityOwner: boolean;
   isLoadingPolicy: boolean;
   isSubmitting: boolean;
+  lastConfirmedTxHash: string;
   loadPolicyContext: (query: PolicyQuery) => Promise<void>;
   passportAllowlistMode: boolean | null;
   setIssuerPolicy: (query: PolicyQuery, policy: IssuerPolicyRecord) => Promise<void>;
@@ -66,12 +72,18 @@ export function usePassportIssuerPolicyAdmin(
 ): UsePassportIssuerPolicyAdminResult {
   const { t } = usePassportLocale();
   const { address, ensureSupportedChain, hasCorrectChain, isConnected } = options;
+  const queryClient = useQueryClient();
   const publicClient = usePublicClient();
   const isConfigured = arePassportContractsConfigured();
-  const [authorityOwner, setAuthorityOwner] = useState("");
+  const cachedAuthorityOwner = isConfigured
+    ? queryClient.getQueryData<string>(getPassportAuthorityOwnerQueryKey())
+    : undefined;
+  const [authorityOwner, setAuthorityOwner] = useState(cachedAuthorityOwner ?? "");
   const [currentPolicy, setCurrentPolicy] = useState<IssuerPolicyRecord | null>(null);
   const [error, setError] = useState("");
-  const [isLoadingAuthorityOwner, setIsLoadingAuthorityOwner] = useState(false);
+  const [isLoadingAuthorityOwner, setIsLoadingAuthorityOwner] = useState(
+    () => isConfigured && cachedAuthorityOwner === undefined,
+  );
   const [isLoadingPolicy, setIsLoadingPolicy] = useState(false);
   const [lastLoadedQuery, setLastLoadedQuery] = useState<PolicyQuery | null>(null);
   const [passportAllowlistMode, setPassportAllowlistModeState] = useState<boolean | null>(null);
@@ -93,19 +105,37 @@ export function usePassportIssuerPolicyAdmin(
     address.toLowerCase() === authorityOwner.toLowerCase();
 
   const loadAuthorityOwner = useCallback(async () => {
-    if (!publicClient || !isConfigured) {
+    if (!isConfigured) {
       setAuthorityOwner("");
+      setIsLoadingAuthorityOwner(false);
       return;
     }
 
-    setIsLoadingAuthorityOwner(true);
+    if (!publicClient) {
+      return;
+    }
+
+    const queryKey = getPassportAuthorityOwnerQueryKey();
+    const cachedOwner = queryClient.getQueryData<string>(queryKey);
+
+    if (cachedOwner !== undefined) {
+      setAuthorityOwner(cachedOwner);
+      setIsLoadingAuthorityOwner(false);
+    } else {
+      setIsLoadingAuthorityOwner(true);
+    }
 
     try {
-      const owner = (await publicClient.readContract({
-        address: PASSPORT_AUTHORITY_ADDRESS as `0x${string}`,
-        abi: PASSPORT_AUTHORITY_ABI,
-        functionName: "owner",
-      })) as string;
+      const owner = await queryClient.fetchQuery({
+        queryKey,
+        queryFn: async () =>
+          (await publicClient.readContract({
+            address: PASSPORT_AUTHORITY_ADDRESS as `0x${string}`,
+            abi: PASSPORT_AUTHORITY_ABI,
+            functionName: "owner",
+          })) as string,
+        staleTime: PASSPORT_READ_CACHE_STALE_TIME,
+      });
 
       setAuthorityOwner(owner);
     } catch (loadError) {
@@ -118,7 +148,7 @@ export function usePassportIssuerPolicyAdmin(
     } finally {
       setIsLoadingAuthorityOwner(false);
     }
-  }, [isConfigured, publicClient]);
+  }, [isConfigured, publicClient, queryClient, t]);
 
   const loadPolicyContext = useCallback(
     async (query: PolicyQuery) => {
@@ -178,7 +208,7 @@ export function usePassportIssuerPolicyAdmin(
         setError(
           loadError instanceof Error
             ? loadError.message
-            : t("加载发行策略上下文失败。", "Failed to load issuer policy context."),
+            : t("加载发章授权上下文失败。", "Failed to load issuer authorization context."),
         );
       } finally {
         setIsLoadingPolicy(false);
@@ -209,7 +239,7 @@ export function usePassportIssuerPolicyAdmin(
       }
 
       setError("");
-      setStatusMessage(t("正在提交发行策略交易...", "Submitting issuer policy transaction..."));
+      setStatusMessage(t("正在提交发章授权交易...", "Submitting issuer authorization transaction..."));
       setPendingAction({ kind: "policy", query });
 
       const policyArgs = {
@@ -249,7 +279,7 @@ export function usePassportIssuerPolicyAdmin(
         setError(
           submitError instanceof Error
             ? submitError.message
-            : t("提交发行策略交易失败。", "Failed to submit issuer policy transaction."),
+            : t("提交发章授权交易失败。", "Failed to submit issuer authorization transaction."),
         );
       }
     },
@@ -283,12 +313,12 @@ export function usePassportIssuerPolicyAdmin(
       setStatusMessage(
         enabled
           ? t(
-              "正在提交开启护照白名单模式交易...",
-              "Submitting transaction to enable passport allowlist mode...",
+              "正在提交开启 Passport 白名单强制模式交易...",
+              "Submitting transaction to enable passport allowlist enforcement...",
             )
           : t(
-              "正在提交关闭护照白名单模式交易...",
-              "Submitting transaction to disable passport allowlist mode...",
+              "正在提交关闭 Passport 白名单强制模式交易...",
+              "Submitting transaction to disable passport allowlist enforcement...",
             ),
       );
       setPendingAction({ kind: "allowlist", passportId, value: enabled });
@@ -307,8 +337,8 @@ export function usePassportIssuerPolicyAdmin(
           submitError instanceof Error
             ? submitError.message
             : t(
-                "提交护照白名单模式交易失败。",
-                "Failed to submit passport allowlist mode transaction.",
+                "提交 Passport 白名单强制模式交易失败。",
+                "Failed to submit passport allowlist enforcement transaction.",
               ),
         );
       }
@@ -322,6 +352,19 @@ export function usePassportIssuerPolicyAdmin(
       writeContractAsync,
     ],
   );
+
+  useEffect(() => {
+    if (!isConfigured) {
+      setAuthorityOwner("");
+      setIsLoadingAuthorityOwner(false);
+      return;
+    }
+
+    const cachedOwner = queryClient.getQueryData<string>(getPassportAuthorityOwnerQueryKey());
+
+    setAuthorityOwner(cachedOwner ?? "");
+    setIsLoadingAuthorityOwner(cachedOwner === undefined);
+  }, [isConfigured, queryClient]);
 
   useEffect(() => {
     void loadAuthorityOwner();
@@ -341,19 +384,19 @@ export function usePassportIssuerPolicyAdmin(
             : t("护照级", "Passport");
 
       setStatusMessage(
-        t(`${scopeLabel} 发行策略更新成功。`, `${scopeLabel} issuer policy updated successfully.`),
+        t(`${scopeLabel} 发章授权更新成功。`, `${scopeLabel} issuer authorization updated successfully.`),
       );
       void loadPolicyContext(pendingAction.query);
     } else {
       setStatusMessage(
         pendingAction.value
           ? t(
-              `护照 #${pendingAction.passportId.toString()} 白名单模式已开启。`,
-              `Passport #${pendingAction.passportId.toString()} allowlist mode enabled.`,
+              `Passport #${pendingAction.passportId.toString()} 白名单强制模式已开启。`,
+              `Passport #${pendingAction.passportId.toString()} allowlist enforcement enabled.`,
             )
           : t(
-              `护照 #${pendingAction.passportId.toString()} 白名单模式已关闭。`,
-              `Passport #${pendingAction.passportId.toString()} allowlist mode disabled.`,
+              `Passport #${pendingAction.passportId.toString()} 白名单强制模式已关闭。`,
+              `Passport #${pendingAction.passportId.toString()} allowlist enforcement disabled.`,
             ),
       );
 
@@ -388,6 +431,7 @@ export function usePassportIssuerPolicyAdmin(
     isLoadingAuthorityOwner,
     isLoadingPolicy,
     isSubmitting,
+    lastConfirmedTxHash: isConfirmed && txHash ? txHash : "",
     loadPolicyContext,
     passportAllowlistMode,
     setIssuerPolicy,

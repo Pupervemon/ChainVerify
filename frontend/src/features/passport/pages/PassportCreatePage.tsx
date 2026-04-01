@@ -1,9 +1,8 @@
-import { Link2, PlusCircle, ShieldCheck, ShieldX, Wallet } from "lucide-react";
+import { Link2, PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { PASSPORT_FACTORY_ADDRESS } from "../../../config/passport";
-import CidComposer from "../components/CidComposer";
 import PassportShell from "../components/PassportShell";
 import { usePassportCreatePassport } from "../hooks/usePassportCreatePassport";
 import { usePassportLocale } from "../i18n";
@@ -45,80 +44,116 @@ export default function PassportCreatePage(props: PassportCreatePageProps) {
     }
   }, [connectedAddress, initialHolder]);
 
+  const connectedWalletLabel = connectedAddress || t("Not connected", "Not connected");
+  const accessLabel = isLoadingPermission
+    ? t("Checking", "Checking")
+    : canCreatePassport
+      ? t("Authorized Creator", "Authorized Creator")
+      : t("Not Authorized", "Not Authorized");
+  const accessToneClass = isLoadingPermission
+    ? "text-slate-500"
+    : canCreatePassport
+      ? "text-emerald-700"
+      : "text-amber-700";
+  const accessHint = isLoadingPermission
+    ? t(
+      "Loading creator permission for the connected wallet.",
+      "Loading creator permission for the connected wallet.",
+    )
+    : canCreatePassport
+      ? t(
+        "This wallet can create passports through the factory.",
+        "This wallet can create passports through the factory.",
+      )
+      : t(
+        "Creator access must be granted before minting a passport.",
+        "Creator access must be granted before minting a passport.",
+      );
+
   return (
     <PassportShell currentKey="create">
-      <div className="space-y-8">
-        <section className="rounded-[2.5rem] bg-[linear-gradient(135deg,_rgba(255,247,237,1),_rgba(255,255,255,1)_52%,_rgba(236,253,245,0.9))] p-10 shadow-[0_24px_60px_-28px_rgba(34,197,94,0.25)]">
-          <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
-            <div className="space-y-4">
-              <span className="inline-flex rounded-full bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-emerald-600 shadow-sm">
-                {t("机构铸造", "Institution Minting")}
+      <div className="passport-dashboard-body">
+        <section className="passport-dashboard-primary panel-surface accent-grid relative overflow-hidden p-8 lg:p-10">
+          <div className="passport-dashboard-primary__grid relative">
+            <div className="passport-dashboard-primary__content space-y-5">
+              <span className="passport-dashboard-primary__header">
+                {t("Create Passport", "Create Passport")}
               </span>
+
               <div className="space-y-3">
-                <h1 className="text-5xl font-black tracking-[-0.04em] text-slate-950">
-                  {t("通过工厂合约创建资产护照。", "Create an asset passport through the factory.")}
-                </h1>
-                <p className="max-w-2xl text-base font-medium text-slate-600">
+                <h1 className="max-w-3xl font-nav text-4xl font-bold tracking-[-0.04em] text-slate-900 lg:text-5xl">
                   {t(
-                    "这个流程调用 `PassportFactory.createPassport(...)`。如果工厂已配置 ERC-6551 基础设施，则会在同一笔交易里创建并绑定 subject account。",
-                    "This flow calls `PassportFactory.createPassport(...)`. If the factory is configured with ERC-6551 infrastructure, the subject account is created and bound in the same transaction.",
+                    "Create an asset passport with the minimum required initialization data.",
+                    "Create an asset passport with the minimum required initialization data.",
+                  )}
+                </h1>
+                <p className="max-w-2xl text-base font-medium text-slate-900">
+                  {t(
+                    "This flow writes holder, fingerprint, and metadata references through PassportFactory.createPassport(...).",
+                    "This flow writes holder, fingerprint, and metadata references through PassportFactory.createPassport(...).",
                   )}
                 </p>
               </div>
-            </div>
 
-            <div className="glass-card space-y-4 p-6">
-              <div className="space-y-1">
-                <p className="meta-label">{t("权限快照", "Permission Snapshot")}</p>
-                <h2 className="text-2xl font-black tracking-tight text-slate-900">
-                  {t("创建权限", "Creator Access")}
-                </h2>
-              </div>
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4">
-                  <p className="meta-label">{t("当前钱包", "Connected Wallet")}</p>
-                  <p className="mt-2 break-all font-mono text-sm text-slate-700">
-                    {connectedAddress || t("未连接", "Not connected")}
+              <div className="passport-dashboard-stats-grid grid gap-3">
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">{t("Access", "Access")}</p>
+                    <p
+                      className={`passport-dashboard-stat-card__value mt-2 font-nav font-bold tracking-tight ${accessToneClass}`}
+                    >
+                      {accessLabel}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    {accessHint}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4">
-                  <p className="meta-label">PassportFactory</p>
-                  <p className="mt-2 break-all font-mono text-sm text-slate-700">
-                    {PASSPORT_FACTORY_ADDRESS || t("未配置", "Not configured")}
+
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">
+                      {t("Connected Wallet", "Connected Wallet")}
+                    </p>
+                    <p className="mt-2 break-all font-mono text-sm font-semibold text-slate-900">
+                      {connectedWalletLabel}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    PassportFactory
                   </p>
                 </div>
-                <div
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] ${
-                    canCreatePassport
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-amber-100 text-amber-700"
-                  }`}
-                >
-                  {canCreatePassport ? <ShieldCheck size={14} /> : <ShieldX size={14} />}
-                  {isLoadingPermission
-                    ? t("检查中", "Checking")
-                    : canCreatePassport
-                      ? t("已授权创建者", "Authorized Creator")
-                      : t("未授权", "Not Authorized")}
+
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">Factory</p>
+                    <p className="mt-2 break-all font-mono text-sm font-semibold text-slate-900">
+                      {PASSPORT_FACTORY_ADDRESS || t("Not configured", "Not configured")}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    AssetPassport mint path
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-            <div className="space-y-2">
-              <p className="meta-label">{t("护照初始化数据", "Passport Init Data")}</p>
-              <h2 className="text-3xl font-black tracking-tight text-slate-900">
-                {t("创建护照", "Create Passport")}
-              </h2>
+        <section className="passport-dashboard-secondary space-y-6">
+          <div className="passport-dashboard-status panel-surface p-8">
+            <div className="passport-dashboard-panel-head flex items-start gap-4 border-b border-white/8 pb-6">
+              <div className="passport-dashboard-status__intro">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  {t("Passport Input", "Passport Input")}
+                </h2>
+              </div>
             </div>
 
-            <div className="mt-6 grid gap-4">
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+            <div className="mt-8 grid gap-4">
+              <div className="panel-soft p-5">
                 <label className="meta-label" htmlFor="passport-holder">
-                  {t("初始持有人", "Initial Holder")}
+                  {t("Initial Holder", "Initial Holder")}
                 </label>
                 <input
                   id="passport-holder"
@@ -126,13 +161,13 @@ export default function PassportCreatePage(props: PassportCreatePageProps) {
                   value={initialHolder}
                   onChange={(event) => setInitialHolder(event.target.value)}
                   placeholder="0x..."
-                  className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 font-mono text-sm text-slate-900 outline-none transition-all focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                  className="passport-dashboard-query__input mt-3 h-12 font-mono"
                 />
               </div>
 
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+              <div className="panel-soft p-5">
                 <label className="meta-label" htmlFor="passport-fingerprint">
-                  {t("资产指纹（bytes32）", "Asset Fingerprint (bytes32)")}
+                  {t("Asset Fingerprint (bytes32)", "Asset Fingerprint (bytes32)")}
                 </label>
                 <input
                   id="passport-fingerprint"
@@ -140,13 +175,13 @@ export default function PassportCreatePage(props: PassportCreatePageProps) {
                   value={assetFingerprint}
                   onChange={(event) => setAssetFingerprint(event.target.value)}
                   placeholder="0x..."
-                  className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 font-mono text-sm text-slate-900 outline-none transition-all focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                  className="passport-dashboard-query__input mt-3 h-12 font-mono"
                 />
               </div>
 
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+              <div className="panel-soft p-5">
                 <label className="meta-label" htmlFor="passport-metadata-cid">
-                  {t("护照元数据 CID", "Passport Metadata CID")}
+                  {t("Passport Metadata CID", "Passport Metadata CID")}
                 </label>
                 <input
                   id="passport-metadata-cid"
@@ -154,25 +189,13 @@ export default function PassportCreatePage(props: PassportCreatePageProps) {
                   value={passportMetadataCID}
                   onChange={(event) => setPassportMetadataCID(event.target.value)}
                   placeholder="ipfs://..."
-                  className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
-                />
-                <CidComposer
-                  accent="emerald"
-                  defaultText={`{\n  "name": "",\n  "description": "",\n  "issuer": "",\n  "image": ""\n}`}
-                  description={t(
-                    "为护照主元数据生成 CID，适合放展示信息、说明和图片引用。",
-                    "Generate the CID for passport-level metadata such as display info, descriptions, and image references.",
-                  )}
-                  fieldKey="passport_metadata"
-                  suggestedFileName="passport-metadata.json"
-                  value={passportMetadataCID}
-                  onChange={setPassportMetadataCID}
+                  className="passport-dashboard-query__input mt-3 h-12"
                 />
               </div>
 
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+              <div className="panel-soft p-5">
                 <label className="meta-label" htmlFor="asset-metadata-cid">
-                  {t("资产元数据 CID", "Asset Metadata CID")}
+                  {t("Asset Metadata CID", "Asset Metadata CID")}
                 </label>
                 <input
                   id="asset-metadata-cid"
@@ -180,120 +203,87 @@ export default function PassportCreatePage(props: PassportCreatePageProps) {
                   value={assetMetadataCID}
                   onChange={(event) => setAssetMetadataCID(event.target.value)}
                   placeholder="ipfs://..."
-                  className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
-                />
-                <CidComposer
-                  accent="emerald"
-                  defaultText={`{\n  "serialNumber": "",\n  "category": "",\n  "manufacturer": "",\n  "attachments": []\n}`}
-                  description={t(
-                    "为资产详情元数据生成 CID，适合放参数、附件、图像和序列号信息。",
-                    "Generate the CID for asset-level metadata such as specs, attachments, images, and serial number information.",
-                  )}
-                  fieldKey="asset_metadata"
-                  suggestedFileName="asset-metadata.json"
-                  value={assetMetadataCID}
-                  onChange={setAssetMetadataCID}
+                  className="passport-dashboard-query__input mt-3 h-12"
                 />
               </div>
 
-              <button
-                onClick={() =>
-                  void submitCreatePassport({
-                    assetFingerprint: assetFingerprint.trim() as `0x${string}`,
-                    assetMetadataCID: assetMetadataCID.trim(),
-                    initialHolder: initialHolder.trim() as `0x${string}`,
-                    passportMetadataCID: passportMetadataCID.trim(),
-                  })
-                }
-                disabled={!canCreatePassport || isSubmitting}
-                className="mt-2 inline-flex items-center justify-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-emerald-700 transition-all hover:bg-emerald-100 disabled:opacity-50"
-              >
-                <PlusCircle size={18} />
-                {isSubmitting ? t("提交中...", "Submitting...") : t("创建护照", "Create Passport")}
-              </button>
+              <div className="passport-dashboard-primary__actions">
+                <button
+                  onClick={() =>
+                    void submitCreatePassport({
+                      assetFingerprint: assetFingerprint.trim() as `0x${string}`,
+                      assetMetadataCID: assetMetadataCID.trim(),
+                      initialHolder: initialHolder.trim() as `0x${string}`,
+                      passportMetadataCID: passportMetadataCID.trim(),
+                    })
+                  }
+                  disabled={!canCreatePassport || isSubmitting}
+                  className="passport-action-button passport-action-button--primary"
+                >
+                  <PlusCircle size={16} />
+                  {isSubmitting
+                    ? t("Submitting...", "Submitting...")
+                    : t("Create Passport", "Create Passport")}
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-              <p className="meta-label">{t("结果", "Result")}</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                {t("交易结果", "Transaction Outcome")}
-              </h2>
-
-              <div className="mt-6 space-y-4">
-                {statusMessage ? (
-                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
-                    {statusMessage}
-                  </div>
-                ) : null}
-                {error ? (
-                  <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-700">
-                    {error}
-                  </div>
-                ) : null}
-                {createdPassportId !== null ? (
-                  <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                    <p className="meta-label">{t("已创建护照", "Created Passport")}</p>
-                    <p className="mt-2 text-lg font-black text-slate-900">
-                      #{createdPassportId.toString()}
-                    </p>
-                    <Link
-                      to={`/passport/${createdPassportId.toString()}`}
-                      className="mt-4 inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-emerald-600 transition-colors hover:text-emerald-700"
-                    >
-                      <Link2 size={16} />
-                      {t("打开详情", "Open Detail")}
-                    </Link>
-                  </div>
-                ) : null}
-                {createdSubjectAccount ? (
-                  <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                    <p className="meta-label">{t("Subject Account", "Subject Account")}</p>
-                    <p className="mt-2 break-all font-mono text-sm text-slate-700">
-                      {createdSubjectAccount}
-                    </p>
-                  </div>
-                ) : null}
+          <div className="passport-dashboard-status panel-surface p-8">
+            <div className="passport-dashboard-panel-head flex items-start gap-4 border-b border-white/8 pb-6">
+              <div className="passport-dashboard-status__intro">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  {t("Transaction Outcome", "Transaction Outcome")}
+                </h2>
               </div>
             </div>
 
-            <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-              <p className="meta-label">{t("业务说明", "Operational Notes")}</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                {t("输入要求", "Input Expectations")}
-              </h2>
-              <div className="mt-6 space-y-4">
-                <div className="rounded-2xl bg-emerald-50 px-5 py-5">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-emerald-600 shadow-sm">
-                    <Wallet size={20} />
-                  </div>
-                <p className="mt-4 font-black text-slate-900">{t("机构控制", "Institution Controlled")}</p>
-                  <p className="mt-2 text-sm font-medium text-slate-600">
-                  {t(
-                    "当前连接的钱包必须先在 `PassportAuthority` 中被授权为 passport creator。",
-                    "The connected wallet must be authorized as a passport creator in `PassportAuthority`.",
-                  )}
+            <div className="mt-8 space-y-4">
+              {statusMessage ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                  {statusMessage}
+                </div>
+              ) : null}
+
+              {error ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                  {error}
+                </div>
+              ) : null}
+
+              {createdPassportId !== null ? (
+                <div className="panel-soft p-5">
+                  <p className="meta-label">{t("Created Passport", "Created Passport")}</p>
+                  <p className="mt-3 text-lg font-black text-slate-900">
+                    #{createdPassportId.toString()}
+                  </p>
+                  <Link
+                    to={`/passport/${createdPassportId.toString()}`}
+                    className="mt-4 inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-emerald-600 transition-colors hover:text-emerald-700"
+                  >
+                    <Link2 size={16} />
+                    {t("Open Detail", "Open Detail")}
+                  </Link>
+                </div>
+              ) : null}
+
+              {createdSubjectAccount ? (
+                <div className="panel-soft p-5">
+                  <p className="meta-label">{t("Subject Account", "Subject Account")}</p>
+                  <p className="mt-3 break-all font-mono text-sm text-slate-700">
+                    {createdSubjectAccount}
                   </p>
                 </div>
-                <div className="rounded-2xl bg-orange-50 px-5 py-5">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm">
-                    <PlusCircle size={20} />
-                  </div>
-                <p className="mt-4 font-black text-slate-900">{t("指纹格式", "Fingerprint Format")}</p>
-                  <p className="mt-2 text-sm font-medium text-slate-600">
+              ) : null}
+
+              {!isConfigured ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
                   {t(
-                    "`assetFingerprint` 当前直接输入原始 `bytes32` 十六进制值，后续可以再抽象哈希规则。",
-                    "`assetFingerprint` is currently entered as a raw `bytes32` hex string. The hashing rule can be abstracted later.",
+                    "Passport contracts are not configured in the frontend environment.",
+                    "Passport contracts are not configured in the frontend environment.",
                   )}
-                  </p>
                 </div>
-                {!isConfigured ? (
-                  <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-700">
-                    {t("前端环境中尚未配置 Passport 合约。", "Passport contracts are not configured in the frontend environment.")}
-                  </div>
-                ) : null}
-              </div>
+              ) : null}
             </div>
           </div>
         </section>

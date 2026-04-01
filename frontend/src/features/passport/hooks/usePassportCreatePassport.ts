@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { decodeEventLog, zeroAddress } from "viem";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
@@ -10,7 +11,12 @@ import {
   PASSPORT_FACTORY_ABI,
   PASSPORT_FACTORY_ADDRESS,
 } from "../../../config/passport";
+import { TARGET_CHAIN_NAME, TARGET_CHAIN_ID } from "../../../config/network";
 import { usePassportLocale } from "../i18n";
+import {
+  getPassportCreatePermissionQueryKey,
+  PASSPORT_READ_CACHE_STALE_TIME,
+} from "../utils/passportReadCache";
 
 type UsePassportCreatePassportOptions = {
   address?: string;
@@ -43,13 +49,25 @@ export function usePassportCreatePassport(
 ): UsePassportCreatePassportResult {
   const { t } = usePassportLocale();
   const { address, ensureSupportedChain, hasCorrectChain, isConnected } = options;
-  const publicClient = usePublicClient();
+  const queryClient = useQueryClient();
+  const publicClient = usePublicClient({ chainId: TARGET_CHAIN_ID });
   const isConfigured = arePassportContractsConfigured();
-  const [canCreatePassport, setCanCreatePassport] = useState(false);
+  const cachedCreatePermission =
+    address && isConfigured && isConnected && hasCorrectChain
+      ? queryClient.getQueryData<boolean>(getPassportCreatePermissionQueryKey(address))
+      : undefined;
+  const [canCreatePassport, setCanCreatePassport] = useState(cachedCreatePermission ?? false);
   const [createdPassportId, setCreatedPassportId] = useState<bigint | null>(null);
   const [createdSubjectAccount, setCreatedSubjectAccount] = useState("");
   const [error, setError] = useState("");
-  const [isLoadingPermission, setIsLoadingPermission] = useState(false);
+  const [isLoadingPermission, setIsLoadingPermission] = useState(
+    () =>
+      Boolean(address) &&
+      isConfigured &&
+      isConnected &&
+      hasCorrectChain &&
+      cachedCreatePermission === undefined,
+  );
   const [statusMessage, setStatusMessage] = useState("");
 
   const { writeContractAsync, data: txHash, isPending } = useWriteContract();
@@ -64,20 +82,58 @@ export function usePassportCreatePassport(
   const isSubmitting = isPending || isConfirming;
 
   const loadCreatePermission = useCallback(async () => {
-    if (!publicClient || !isConfigured || !address) {
+    if (!isConfigured || !address || !isConnected) {
       setCanCreatePassport(false);
+      setIsLoadingPermission(false);
       return;
     }
 
-    setIsLoadingPermission(true);
+    if (!hasCorrectChain) {
+      setCanCreatePassport(false);
+      setError("");
+      setIsLoadingPermission(false);
+      return;
+    }
+
+    if (!publicClient) {
+      return;
+    }
+
+    const queryKey = getPassportCreatePermissionQueryKey(address);
+    const cachedPermission = queryClient.getQueryData<boolean>(queryKey);
+
+    if (cachedPermission !== undefined) {
+      setCanCreatePassport(cachedPermission);
+      setIsLoadingPermission(false);
+    } else {
+      setIsLoadingPermission(true);
+    }
+
+    setError("");
 
     try {
-      const allowed = (await publicClient.readContract({
-        address: PASSPORT_AUTHORITY_ADDRESS as `0x${string}`,
-        abi: PASSPORT_AUTHORITY_ABI,
-        functionName: "canCreatePassport",
-        args: [address as `0x${string}`],
-      })) as boolean;
+      const allowed = await queryClient.fetchQuery({
+        queryKey,
+        queryFn: async () => {
+          const authorityCode = await publicClient.getBytecode({
+            address: PASSPORT_AUTHORITY_ADDRESS as `0x${string}`,
+          });
+
+          if (!authorityCode) {
+            throw new Error(
+              `No contract code found at ${PASSPORT_AUTHORITY_ADDRESS} on ${TARGET_CHAIN_NAME} (${TARGET_CHAIN_ID}).`,
+            );
+          }
+
+          return (await publicClient.readContract({
+            address: PASSPORT_AUTHORITY_ADDRESS as `0x${string}`,
+            abi: PASSPORT_AUTHORITY_ABI,
+            functionName: "canCreatePassport",
+            args: [address as `0x${string}`],
+          })) as boolean;
+        },
+        staleTime: PASSPORT_READ_CACHE_STALE_TIME,
+      });
 
       setCanCreatePassport(allowed);
     } catch (loadError) {
@@ -90,7 +146,15 @@ export function usePassportCreatePassport(
     } finally {
       setIsLoadingPermission(false);
     }
-  }, [address, isConfigured, publicClient]);
+  }, [
+    address,
+    hasCorrectChain,
+    isConfigured,
+    isConnected,
+    publicClient,
+    queryClient,
+    t,
+  ]);
 
   const submitCreatePassport = useCallback(
     async (form: CreatePassportForm) => {
@@ -154,6 +218,27 @@ export function usePassportCreatePassport(
       writeContractAsync,
     ],
   );
+
+  useEffect(() => {
+    if (!isConfigured || !address || !isConnected) {
+      setCanCreatePassport(false);
+      setIsLoadingPermission(false);
+      return;
+    }
+
+    if (!hasCorrectChain) {
+      setCanCreatePassport(false);
+      setIsLoadingPermission(false);
+      return;
+    }
+
+    const cachedPermission = queryClient.getQueryData<boolean>(
+      getPassportCreatePermissionQueryKey(address),
+    );
+
+    setCanCreatePassport(cachedPermission ?? false);
+    setIsLoadingPermission(cachedPermission === undefined);
+  }, [address, hasCorrectChain, isConfigured, isConnected, queryClient]);
 
   useEffect(() => {
     void loadCreatePermission();

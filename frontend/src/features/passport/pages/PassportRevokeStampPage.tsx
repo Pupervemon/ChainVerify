@@ -1,8 +1,7 @@
-import { Ban, Link2, ShieldCheck, ShieldX, Undo2 } from "lucide-react";
+import { Link2, Undo2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import CidComposer from "../components/CidComposer";
 import PassportShell from "../components/PassportShell";
 import { usePassportRevokeStamp } from "../hooks/usePassportRevokeStamp";
 import { usePassportLocale } from "../i18n";
@@ -20,6 +19,10 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
   const [searchParams] = useSearchParams();
   const [stampId, setStampId] = useState(searchParams.get("stampId") || "");
   const [reasonCID, setReasonCID] = useState("");
+  const parsedStampId = useMemo(
+    () => (/^\d+$/.test(stampId.trim()) ? BigInt(stampId.trim()) : null),
+    [stampId],
+  );
   const {
     canRevoke,
     error,
@@ -35,13 +38,9 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
     address: connectedAddress,
     ensureSupportedChain,
     hasCorrectChain,
+    initialStampId: parsedStampId,
     isConnected,
   });
-
-  const parsedStampId = useMemo(
-    () => (/^\d+$/.test(stampId.trim()) ? BigInt(stampId.trim()) : null),
-    [stampId],
-  );
 
   useEffect(() => {
     if (parsedStampId === null) {
@@ -51,72 +50,106 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
     void loadContext(parsedStampId);
   }, [loadContext, parsedStampId]);
 
+  const connectedWalletLabel = connectedAddress || t("Not connected", "Not connected");
+  const accessLabel = isLoadingContext
+    ? t("Checking", "Checking")
+    : canRevoke
+      ? t("Authorized Revoker", "Authorized Revoker")
+      : t("Permission Required", "Permission Required");
+  const accessToneClass = isLoadingContext
+    ? "text-slate-500"
+    : canRevoke
+      ? "text-emerald-700"
+      : "text-amber-700";
+
   return (
     <PassportShell currentKey="revoke">
-      <div className="space-y-8">
-        <section className="rounded-[2.5rem] bg-[linear-gradient(135deg,_rgba(255,241,242,1),_rgba(255,255,255,1)_45%,_rgba(255,247,237,0.92))] p-10 shadow-[0_24px_60px_-28px_rgba(244,63,94,0.22)]">
-          <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
-            <div className="space-y-4">
-              <span className="inline-flex rounded-full bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-rose-600 shadow-sm">
-                {t("履历撤销", "Chronicle Revocation")}
+      <div className="passport-dashboard-body">
+        <section className="passport-dashboard-primary panel-surface accent-grid relative overflow-hidden p-8 lg:p-10">
+          <div className="passport-dashboard-primary__grid relative">
+            <div className="passport-dashboard-primary__content space-y-5">
+              <span className="passport-dashboard-primary__header">
+                {t("Revoke Stamp", "Revoke Stamp")}
               </span>
+
               <div className="space-y-3">
-                <h1 className="text-5xl font-black tracking-[-0.04em] text-slate-950">
-                  {t("撤销已签发的履历印章。", "Revoke an issued chronicle stamp.")}
-                </h1>
-                <p className="max-w-2xl text-base font-medium text-slate-600">
+                <h1 className="max-w-3xl font-nav text-4xl font-bold tracking-[-0.04em] text-slate-900 lg:text-5xl">
                   {t(
-                    "这个流程会直接使用机构钱包或授权操作员钱包调用 `ChronicleStamp.revokeStamp(...)`。",
-                    "This flow calls `ChronicleStamp.revokeStamp(...)` directly from the institution or authorized operator wallet.",
+                    "Revoke an issued stamp with a single reason reference.",
+                    "Revoke an issued stamp with a single reason reference.",
+                  )}
+                </h1>
+                <p className="max-w-2xl text-base font-medium text-slate-900">
+                  {t(
+                    "Load one stamp, review its current state, then submit revocation through ChronicleStamp.revokeStamp(...).",
+                    "Load one stamp, review its current state, then submit revocation through ChronicleStamp.revokeStamp(...).",
                   )}
                 </p>
               </div>
-            </div>
 
-            <div className="glass-card space-y-4 p-6">
-              <div className="space-y-1">
-                <p className="meta-label">{t("权限快照", "Permission Snapshot")}</p>
-                <h2 className="text-2xl font-black tracking-tight text-slate-900">
-                  {t("撤销权限", "Revocation Access")}
-                </h2>
-              </div>
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4">
-                  <p className="meta-label">{t("当前钱包", "Connected Wallet")}</p>
-                  <p className="mt-2 break-all font-mono text-sm text-slate-700">
-                    {connectedAddress || t("未连接", "Not connected")}
+              <div className="passport-dashboard-stats-grid grid gap-3">
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">{t("Access", "Access")}</p>
+                    <p
+                      className={`passport-dashboard-stat-card__value mt-2 font-nav font-bold tracking-tight ${accessToneClass}`}
+                    >
+                      {accessLabel}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    {connectedWalletLabel}
                   </p>
                 </div>
-                <div
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] ${
-                    canRevoke ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                  }`}
-                >
-                  {canRevoke ? <ShieldCheck size={14} /> : <ShieldX size={14} />}
-                  {isLoadingContext
-                    ? t("检查中", "Checking")
-                    : canRevoke
-                      ? t("已授权撤销方", "Authorized Revoker")
-                      : t("需要权限", "Permission Required")}
+
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">{t("Passport ID", "Passport ID")}</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                      {stampRecord ? `#${stampRecord.passportId.toString()}` : "--"}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    {stampRecord
+                      ? `Stamp #${stampRecord.stampId.toString()}`
+                      : t("No stamp loaded", "No stamp loaded")}
+                  </p>
+                </div>
+
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">{t("Current State", "Current State")}</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                      {stampRecord
+                        ? stampRecord.revoked
+                          ? t("Already revoked", "Already revoked")
+                          : t("Effective / revocable", "Effective / revocable")
+                        : "--"}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    Reason CID required
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-            <div className="space-y-2">
-              <p className="meta-label">{t("撤销输入", "Revocation Input")}</p>
-              <h2 className="text-3xl font-black tracking-tight text-slate-900">
-                {t("撤销印章", "Revoke Stamp")}
-              </h2>
+        <section className="passport-dashboard-secondary space-y-6">
+          <div className="passport-dashboard-status panel-surface p-8">
+            <div className="passport-dashboard-panel-head flex items-start gap-4 border-b border-white/8 pb-6">
+              <div className="passport-dashboard-status__intro">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  {t("Revocation Input", "Revocation Input")}
+                </h2>
+              </div>
             </div>
 
-            <div className="mt-6 grid gap-4">
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+            <div className="mt-8 grid gap-4">
+              <div className="panel-soft p-5">
                 <label className="meta-label" htmlFor="revoke-stamp-id">
-                  {t("印章 ID", "Stamp ID")}
+                  {t("Stamp ID", "Stamp ID")}
                 </label>
                 <input
                   id="revoke-stamp-id"
@@ -124,13 +157,13 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
                   value={stampId}
                   onChange={(event) => setStampId(event.target.value)}
                   placeholder="1"
-                  className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 font-mono text-sm text-slate-900 outline-none transition-all focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                  className="passport-dashboard-query__input mt-3 h-12 font-mono"
                 />
               </div>
 
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+              <div className="panel-soft p-5">
                 <label className="meta-label" htmlFor="revoke-reason-cid">
-                  {t("原因 CID", "Reason CID")}
+                  {t("Reason CID", "Reason CID")}
                 </label>
                 <input
                   id="revoke-reason-cid"
@@ -138,114 +171,100 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
                   value={reasonCID}
                   onChange={(event) => setReasonCID(event.target.value)}
                   placeholder="ipfs://..."
-                  className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
-                />
-                <CidComposer
-                  accent="rose"
-                  defaultText={`{\n  "reason": "",\n  "evidence": [],\n  "operator": "",\n  "notes": ""\n}`}
-                  description={t(
-                    "为撤销原因生成 CID，适合记录审计说明、争议材料和证据附件。",
-                    "Generate the CID for revocation reasons, audit notes, dispute material, and evidence attachments.",
-                  )}
-                  fieldKey="revoke_reason"
-                  suggestedFileName="revocation-reason.json"
-                  value={reasonCID}
-                  onChange={setReasonCID}
+                  className="passport-dashboard-query__input mt-3 h-12"
                 />
               </div>
 
-              <button
-                onClick={() => {
-                  if (parsedStampId === null) {
-                    return;
-                  }
+              <div className="passport-dashboard-primary__actions">
+                <button
+                  onClick={() => {
+                    if (parsedStampId === null) {
+                      return;
+                    }
 
-                  void submitRevokeStamp(parsedStampId, reasonCID);
-                }}
-                disabled={parsedStampId === null || !canRevoke || isSubmitting}
-                className="mt-2 inline-flex items-center justify-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-rose-700 transition-all hover:bg-rose-100 disabled:opacity-50"
-              >
-                <Undo2 size={18} />
-                {isSubmitting ? t("提交中...", "Submitting...") : t("撤销印章", "Revoke Stamp")}
-              </button>
+                    void submitRevokeStamp(parsedStampId, reasonCID);
+                  }}
+                  disabled={parsedStampId === null || !canRevoke || isSubmitting}
+                  className="passport-action-button passport-action-button--primary"
+                >
+                  <Undo2 size={16} />
+                  {isSubmitting
+                    ? t("Submitting...", "Submitting...")
+                    : t("Revoke Stamp", "Revoke Stamp")}
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-              <p className="meta-label">{t("印章上下文", "Stamp Context")}</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                {t("当前印章", "Selected Stamp")}
-              </h2>
-              <div className="mt-6 space-y-4">
-                {stampRecord ? (
-                  <>
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                      <p className="meta-label">{t("护照 ID", "Passport ID")}</p>
-                      <p className="mt-2 text-lg font-black text-slate-900">
-                        #{stampRecord.passportId.toString()}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                      <p className="meta-label">{t("印章类型 ID", "Stamp Type ID")}</p>
-                      <p className="mt-2 text-lg font-black text-slate-900">
-                        #{stampRecord.stampTypeId.toString()}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                      <p className="meta-label">{t("当前状态", "Current State")}</p>
-                      <p className="mt-2 text-sm font-semibold text-slate-700">
-                        {stampRecord.revoked ? t("已撤销", "Already revoked") : t("生效中 / 可撤销", "Effective / revocable")}
-                      </p>
-                    </div>
-                  </>
-                ) : null}
-                {statusMessage ? (
-                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
-                    {statusMessage}
-                  </div>
-                ) : null}
-                {error ? (
-                  <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-700">
-                    {error}
-                  </div>
-                ) : null}
-                {revokedStampId !== null && stampRecord ? (
-                  <Link
-                    to={`/passport/${stampRecord.passportId.toString()}`}
-                    className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-rose-600 transition-colors hover:text-rose-700"
-                  >
-                    <Link2 size={16} />
-                    {t("打开护照详情", "Open Passport Detail")}
-                  </Link>
-                ) : null}
+          <div className="passport-dashboard-status panel-surface p-8">
+            <div className="passport-dashboard-panel-head flex items-start gap-4 border-b border-white/8 pb-6">
+              <div className="passport-dashboard-status__intro">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  {t("Stamp Context", "Stamp Context")}
+                </h2>
               </div>
             </div>
 
-            <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-              <p className="meta-label">{t("业务说明", "Operational Notes")}</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                {t("撤销规则", "Revocation Rules")}
-              </h2>
-              <div className="mt-6 space-y-4">
-                <div className="rounded-2xl bg-rose-50 px-5 py-5">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-rose-600 shadow-sm">
-                    <Ban size={20} />
+            <div className="mt-8 space-y-4">
+              {stampRecord ? (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="panel-soft p-5">
+                      <p className="meta-label">{t("Passport ID", "Passport ID")}</p>
+                      <p className="mt-3 text-lg font-black text-slate-900">
+                        #{stampRecord.passportId.toString()}
+                      </p>
+                    </div>
+
+                    <div className="panel-soft p-5">
+                      <p className="meta-label">{t("Stamp Type ID", "Stamp Type ID")}</p>
+                      <p className="mt-3 text-lg font-black text-slate-900">
+                        #{stampRecord.stampTypeId.toString()}
+                      </p>
+                    </div>
                   </div>
-                  <p className="mt-4 font-black text-slate-900">{t("必须提供原因 CID", "Reason CID Required")}</p>
-                  <p className="mt-2 text-sm font-medium text-slate-600">
-                    {t(
-                      "执行撤销必须提供非空 `reasonCID`，通常指向审计或争议处理记录。",
-                      "Revocation requires a non-empty `reasonCID`, typically pointing to an audit or dispute record.",
-                    )}
-                  </p>
+
+                  <div className="panel-soft p-5">
+                    <p className="meta-label">{t("Current State", "Current State")}</p>
+                    <p className="mt-3 text-sm font-semibold text-slate-700">
+                      {stampRecord.revoked
+                        ? t("Already revoked", "Already revoked")
+                        : t("Effective / revocable", "Effective / revocable")}
+                    </p>
+                  </div>
+                </>
+              ) : null}
+
+              {statusMessage ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                  {statusMessage}
                 </div>
-                {!isConfigured ? (
-                  <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-700">
-                    {t("前端环境中尚未配置 Passport 合约。", "Passport contracts are not configured in the frontend environment.")}
-                  </div>
-                ) : null}
-              </div>
+              ) : null}
+
+              {error ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                  {error}
+                </div>
+              ) : null}
+
+              {revokedStampId !== null && stampRecord ? (
+                <Link
+                  to={`/passport/${stampRecord.passportId.toString()}`}
+                  className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-rose-600 transition-colors hover:text-rose-700"
+                >
+                  <Link2 size={16} />
+                  {t("Open Passport Detail", "Open Passport Detail")}
+                </Link>
+              ) : null}
+
+              {!isConfigured ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                  {t(
+                    "Passport contracts are not configured in the frontend environment.",
+                    "Passport contracts are not configured in the frontend environment.",
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
         </section>

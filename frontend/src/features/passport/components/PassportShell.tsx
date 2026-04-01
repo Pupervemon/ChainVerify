@@ -1,4 +1,5 @@
 import {
+  Building2,
   ChevronLeft,
   ChevronRight,
   DatabaseZap,
@@ -24,6 +25,7 @@ const PASSPORT_SIDEBAR_COLLAPSED_STORAGE_KEY = "passport-sidebar-collapsed";
 type PassportShellKey =
   | "dashboard"
   | "workbench"
+  | "factories"
   | "admin"
   | "create"
   | "policies"
@@ -57,6 +59,13 @@ export default function PassportShell(props: PassportShellProps) {
 
     return window.localStorage.getItem(PASSPORT_SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
   });
+  const [isCompactViewport, setIsCompactViewport] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.innerWidth <= 1279;
+  });
   const [searchQuery, setSearchQuery] = useState("");
 
   const sections: Array<{ items: PassportNavItem[]; title: string }> = [
@@ -83,6 +92,13 @@ export default function PassportShell(props: PassportShellProps) {
       title: "Governance",
       items: [
         {
+          key: "factories",
+          label: "Trusted Factories",
+          path: "/passport/factories",
+          icon: Building2,
+          description: "Manage factory contracts allowed to mint.",
+        },
+        {
           key: "admin",
           label: "Creator Access",
           path: "/passport/admin",
@@ -91,10 +107,10 @@ export default function PassportShell(props: PassportShellProps) {
         },
         {
           key: "policies",
-          label: "Issuer Policies",
+          label: "Issuer Authorization",
           path: "/passport/policies",
           icon: Tags,
-          description: "Set issuance rules and allowlists.",
+          description: "Manage issuer authorization.",
         },
         {
           key: "stamp-type-admins",
@@ -163,6 +179,8 @@ export default function PassportShell(props: PassportShellProps) {
         : section.items,
     }))
     .filter((section) => section.items.length > 0);
+  const filteredItems = filteredSections.flatMap((section) => section.items);
+  const showCollapsedSidebar = isCollapsed && !isCompactViewport;
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -171,12 +189,27 @@ export default function PassportShell(props: PassportShellProps) {
     );
   }, [isCollapsed]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const syncViewportState = () => {
+      setIsCompactViewport(window.innerWidth <= 1279);
+    };
+
+    syncViewportState();
+    window.addEventListener("resize", syncViewportState);
+
+    return () => window.removeEventListener("resize", syncViewportState);
+  }, []);
+
   return (
-    <main className={`passport-layout ${isCollapsed ? "is-collapsed" : ""}`}>
-      <aside className={`passport-sidebar ${isCollapsed ? "is-collapsed" : ""}`}>
-        <div className="flex min-h-[calc(100vh-104px)] flex-col justify-between">
-          <div className="space-y-6">
-            {!isCollapsed ? (
+    <main className={`passport-layout ${showCollapsedSidebar ? "is-collapsed" : ""}`}>
+      <aside className={`passport-sidebar ${showCollapsedSidebar ? "is-collapsed" : ""}`}>
+        <div className="passport-sidebar__frame">
+          <div className="passport-sidebar__content space-y-6">
+            {!showCollapsedSidebar ? (
               <label className="relative block">
                 <Search
                   size={15}
@@ -225,14 +258,35 @@ export default function PassportShell(props: PassportShellProps) {
               </div>
             )}
 
-            {filteredSections.map((section, index) => (
+            <div className="passport-mobile-nav xl:hidden">
+              <div className="passport-mobile-nav__track">
+                {filteredItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentKey === item.key;
+
+                  return (
+                    <Link
+                      key={item.key}
+                      to={item.path}
+                      className={`passport-mobile-nav__item ${isActive ? "is-active" : ""}`}
+                    >
+                      <Icon size={15} strokeWidth={2.25} />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="passport-sidebar__nav hidden xl:block">
+              {filteredSections.map((section, index) => (
               <div
                 key={section.title}
                 className={`space-y-3 ${
                   index === 0 ? "" : "border-t border-[#F3F4F6] pt-4"
                 }`}
               >
-                {!isCollapsed ? (
+                {!showCollapsedSidebar ? (
                   <p
                     className="overflow-hidden whitespace-nowrap pl-3 tracking-[0.08em]"
                     style={{
@@ -254,15 +308,14 @@ export default function PassportShell(props: PassportShellProps) {
                     const isActive = currentKey === item.key;
 
                     return (
-                      <div className="group relative">
+                      <div key={item.key} className="group relative">
                         <Link
-                          key={item.key}
                           to={item.path}
                           className={`flex h-[38px] w-full items-center text-left transition-all ${
                             isActive
                               ? "bg-[#EFF6FF] text-slate-900"
                               : "text-[#374151] hover:bg-[#EFF6FF] hover:text-[#111827]"
-                          } ${isCollapsed ? "justify-center rounded-lg px-0" : "rounded-xl px-3"}`}
+                          } ${showCollapsedSidebar ? "justify-center rounded-lg px-0" : "rounded-xl px-3"}`}
                         >
                           <span
                             className={`inline-flex h-6 w-6 shrink-0 items-center justify-center ${
@@ -271,7 +324,7 @@ export default function PassportShell(props: PassportShellProps) {
                           >
                             <Icon size={17} strokeWidth={2.25} />
                           </span>
-                          {!isCollapsed ? (
+                          {!showCollapsedSidebar ? (
                             <span className="min-w-0 flex-1 overflow-hidden">
                               <span
                                 className="block truncate whitespace-nowrap"
@@ -291,7 +344,7 @@ export default function PassportShell(props: PassportShellProps) {
                             </span>
                           ) : null}
                         </Link>
-                        {isCollapsed ? (
+                        {showCollapsedSidebar ? (
                           <div
                             className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-20 -translate-y-1/2 whitespace-nowrap rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
                             style={{
@@ -313,33 +366,36 @@ export default function PassportShell(props: PassportShellProps) {
                   })}
                 </div>
               </div>
-            ))}
+              ))}
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsCollapsed((value) => !value)}
-            className={`mt-6 flex h-[38px] items-center rounded-xl border border-[#E5E7EB] text-[#111827] transition-all hover:bg-[#EFF6FF] ${
-              isCollapsed ? "w-[38px] justify-center" : "w-full justify-between px-3"
-            }`}
-          >
-            {!isCollapsed ? (
-              <span
-                className="truncate whitespace-nowrap"
-                style={{
-                  fontFamily:
-                    'Inter, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
-                  fontFeatureSettings: "normal",
-                  fontSize: "14px",
-                  fontVariationSettings: "normal",
-                  fontWeight: 500,
-                }}
-              >
-                Collapse
-              </span>
-            ) : null}
-            {isCollapsed ? <ChevronRight size={16} strokeWidth={2.25} /> : <ChevronLeft size={16} strokeWidth={2.25} />}
-          </button>
+          {!isCompactViewport ? (
+            <button
+              type="button"
+              onClick={() => setIsCollapsed((value) => !value)}
+              className={`passport-sidebar__toggle mt-6 flex h-[38px] items-center rounded-xl border border-[#E5E7EB] text-[#111827] transition-all hover:bg-[#EFF6FF] ${
+                showCollapsedSidebar ? "w-[38px] justify-center" : "w-full justify-between px-3"
+              }`}
+            >
+              {!showCollapsedSidebar ? (
+                <span
+                  className="truncate whitespace-nowrap"
+                  style={{
+                    fontFamily:
+                      'Inter, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+                    fontFeatureSettings: "normal",
+                    fontSize: "14px",
+                    fontVariationSettings: "normal",
+                    fontWeight: 500,
+                  }}
+                >
+                  Collapse
+                </span>
+              ) : null}
+              {showCollapsedSidebar ? <ChevronRight size={16} strokeWidth={2.25} /> : <ChevronLeft size={16} strokeWidth={2.25} />}
+            </button>
+          ) : null}
         </div>
       </aside>
 

@@ -1,19 +1,21 @@
-import { RefreshCw, ShieldCheck, ShieldX, Tags, Wallet } from "lucide-react";
+import { Copy, ExternalLink, RefreshCw, ShieldCheck, Tags } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { TARGET_CHAIN } from "../../../config/network";
 import {
   isPassportAddress,
   PASSPORT_AUTHORITY_ADDRESS,
 } from "../../../config/passport";
-import CidComposer from "../components/CidComposer";
 import PassportShell from "../components/PassportShell";
 import {
   type IssuerPolicyRecord,
   type IssuerPolicyScope,
   usePassportIssuerPolicyAdmin,
 } from "../hooks/usePassportIssuerPolicyAdmin";
+import { usePassportIssuerPolicyList } from "../hooks/usePassportIssuerPolicyList";
 import { usePassportLocale } from "../i18n";
+import type { IssuerPolicySnapshot } from "../utils/passportIssuerPolicyIndex";
 
 type PassportIssuerPolicyPageProps = {
   connectedAddress: string;
@@ -74,6 +76,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
     isLoadingAuthorityOwner,
     isLoadingPolicy,
     isSubmitting,
+    lastConfirmedTxHash,
     loadPolicyContext,
     passportAllowlistMode,
     setIssuerPolicy,
@@ -85,8 +88,17 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
     hasCorrectChain,
     isConnected,
   });
+  const {
+    activePolicyCount,
+    error: policyListError,
+    isConfigured: isPolicyListConfigured,
+    isLoading: isLoadingPolicyList,
+    policies,
+    refreshPolicyList,
+  } = usePassportIssuerPolicyList();
 
   const normalizedIssuer = issuerAddress.trim();
+  const blockExplorerBaseUrl = TARGET_CHAIN.blockExplorers?.default.url?.replace(/\/$/, "") || "";
   const hasValidIssuer = useMemo(() => isPassportAddress(normalizedIssuer), [normalizedIssuer]);
   const parsedStampTypeId = useMemo(
     () => (/^\d+$/.test(stampTypeId.trim()) ? BigInt(stampTypeId.trim()) : null),
@@ -98,6 +110,9 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
   );
   const parsedValidAfter = useMemo(() => toUnixSeconds(validAfter), [validAfter]);
   const parsedValidUntil = useMemo(() => toUnixSeconds(validUntil), [validUntil]);
+  const activePolicyCountLabel = isLoadingPolicyList
+    ? "--"
+    : activePolicyCount.toString().padStart(2, "0");
 
   const canLoadContext =
     hasValidIssuer &&
@@ -133,6 +148,14 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
   }, [passportAllowlistMode]);
 
   useEffect(() => {
+    if (!lastConfirmedTxHash) {
+      return;
+    }
+
+    void refreshPolicyList();
+  }, [lastConfirmedTxHash, refreshPolicyList]);
+
+  useEffect(() => {
     if (!canLoadContext) {
       return;
     }
@@ -154,89 +177,309 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
 
   const currentPolicyStateLabel = (policy: IssuerPolicyRecord | null) => {
     if (!policy) {
-      return t("未加载", "Not loaded");
+      return t("Not loaded", "Not loaded");
     }
 
-    return policy.enabled ? t("启用", "Enabled") : t("停用", "Disabled");
+    return policy.enabled ? t("Enabled", "Enabled") : t("Disabled", "Disabled");
   };
+
+  const scopeLabel =
+    scope === "global"
+      ? t("Global", "Global")
+      : scope === "type"
+        ? t("Type", "Type")
+        : t("Passport", "Passport");
+  const isAccessPending = isLoadingAuthorityOwner && !authorityOwner;
+  const authorityOwnerLabel = isLoadingAuthorityOwner
+    ? t("Loading...", "Loading...")
+    : authorityOwner || t("Unavailable", "Unavailable");
+  const connectedWalletLabel = connectedAddress || t("Not connected", "Not connected");
+  const accessLabel = isAccessPending
+    ? t("Checking", "Checking")
+    : isAuthorityOwner
+      ? t("Owner Access", "Owner Access")
+      : t("Read Only", "Read Only");
+  const accessHint = isAccessPending
+    ? t(
+      "Loading authority ownership for this wallet.",
+      "Loading authority ownership for this wallet.",
+    )
+    : isAuthorityOwner
+      ? t(
+        "当前钱包可以管理发章授权。",
+        "This wallet can manage issuer authorization.",
+      )
+      : t(
+        "只有 authority owner 可以管理发章授权。",
+        "Only the authority owner can manage issuer authorization.",
+      );
+  const accessToneClass = isAccessPending
+    ? "text-slate-500"
+    : isAuthorityOwner
+      ? "text-emerald-700"
+      : "text-amber-700";
+
+  const handleCopyAddress = async (address: string) => {
+    try {
+      await navigator.clipboard.writeText(address);
+    } catch {
+      // Ignore clipboard failures so the list remains usable.
+    }
+  };
+
+  const loadPolicyIntoForm = (policy: IssuerPolicySnapshot) => {
+    setScope(policy.scope);
+    setIssuerAddress(policy.address);
+    setStampTypeId(policy.scope === "type" && policy.stampTypeId !== null ? policy.stampTypeId.toString() : "");
+    setPassportId(
+      policy.scope === "passport" && policy.passportId !== null ? policy.passportId.toString() : "",
+    );
+  };
+
+  const renderPolicyGroup = (
+    groupScope: IssuerPolicyScope,
+    title: string,
+    description: string,
+    items: IssuerPolicySnapshot[],
+  ) => (
+    <div className="panel-soft p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="meta-label">{title}</p>
+          <p className="mt-3 max-w-2xl text-sm font-medium text-slate-600">{description}</p>
+        </div>
+        <span className="inline-flex min-w-14 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-700">
+          {String(items.length).padStart(2, "0")}
+        </span>
+      </div>
+
+      <div className="mt-5">
+        {items.length > 0 ? (
+          <div className="passport-dashboard-address-list">
+            {items.map((policy, index) => {
+              const addressHref = blockExplorerBaseUrl
+                ? `${blockExplorerBaseUrl}/address/${policy.address}`
+                : "";
+              const contextBadge =
+                groupScope === "global"
+                  ? t("全局授权", "Global Authorization")
+                  : groupScope === "type"
+                    ? t(
+                        `类型 #${policy.stampTypeId?.toString() ?? "--"}`,
+                        `Type #${policy.stampTypeId?.toString() ?? "--"}`,
+                      )
+                    : t(
+                        `Passport #${policy.passportId?.toString() ?? "--"}`,
+                        `Passport #${policy.passportId?.toString() ?? "--"}`,
+                      );
+
+              return (
+                <div
+                  key={`${policy.scope}:${policy.address.toLowerCase()}:${policy.stampTypeId?.toString() ?? "na"}:${policy.passportId?.toString() ?? "na"}`}
+                  className="passport-dashboard-address-item"
+                >
+                  <div className="passport-dashboard-address-item__header">
+                    <span className="passport-dashboard-address-item__label">
+                      {t("已授权地址", "Authorized Address")}{" "}
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-emerald-700">
+                      {contextBadge}
+                    </span>
+                  </div>
+
+                  <div className="passport-dashboard-address-item__value">
+                    <div className="passport-dashboard-address-item__row">
+                      <span className="passport-dashboard-address-item__link is-static">
+                        {policy.address}
+                      </span>
+                      <div className="passport-dashboard-address-item__actions">
+                        <button
+                          type="button"
+                          onClick={() => loadPolicyIntoForm(policy)}
+                          className="passport-dashboard-address-item__action"
+                        >
+                          {t("Load", "Load")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleCopyAddress(policy.address)}
+                          className="passport-dashboard-address-item__action"
+                        >
+                          <Copy size={12} />
+                          {t("Copy", "Copy")}
+                        </button>
+                        {addressHref ? (
+                          <a
+                            href={addressHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="passport-dashboard-address-item__action"
+                          >
+                            <ExternalLink size={12} />
+                            {t("Explorer", "Explorer")}
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            className="passport-dashboard-address-item__action is-disabled"
+                            title={t(
+                              "当前链没有配置区块浏览器。",
+                              "No block explorer is configured for the current chain.",
+                            )}
+                          >
+                            <ExternalLink size={12} />
+                            {t("Explorer", "Explorer")}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="mt-3 text-xs font-medium text-slate-500">
+                      {policy.policyCID
+                        ? t(
+                            `最新文档 CID: ${policy.policyCID}`,
+                            `Latest document CID: ${policy.policyCID}`,
+                          )
+                        : t(
+                            "最新授权快照未设置 CID。",
+                            "Latest authorization snapshot has no CID set.",
+                          )}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
+            {groupScope === "global"
+              ? t(
+                  "当前没有已索引的全局发章授权。",
+                  "No active global issuer authorization is currently indexed.",
+                )
+              : groupScope === "type"
+                ? t(
+                    "当前没有已索引的类型级发章授权。",
+                    "No active type-level issuer authorization is currently indexed.",
+                  )
+                : t(
+                    "当前没有已索引的 Passport 级发章授权。",
+                    "No active passport-level issuer authorization is currently indexed.",
+                  )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <PassportShell currentKey="policies">
-      <div className="space-y-8">
-        <section className="rounded-[2.5rem] bg-[linear-gradient(135deg,_rgba(255,247,237,1),_rgba(255,255,255,1)_45%,_rgba(239,246,255,0.94))] p-10 shadow-[0_24px_60px_-28px_rgba(14,165,233,0.24)]">
-          <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-            <div className="space-y-4">
-              <span className="inline-flex rounded-full bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-sky-600 shadow-sm">
-                {t("发行策略", "Issuer Policies")}
+      <div className="passport-dashboard-body">
+        <section className="passport-dashboard-primary panel-surface accent-grid relative overflow-hidden p-8 lg:p-10">
+          <div className="passport-dashboard-primary__grid relative">
+            <div className="passport-dashboard-primary__content space-y-5">
+              <span className="passport-dashboard-primary__header">
+                {t("发章授权", "Issuer Authorization")}
               </span>
+
               <div className="space-y-3">
-                <h1 className="text-5xl font-black tracking-[-0.04em] text-slate-950">
-                  {t("管理三种作用域下的发行方权限规则。", "Manage issuer permission rules across all three scopes.")}
-                </h1>
-                <p className="max-w-2xl text-base font-medium text-slate-600">
+                <h1 className="max-w-3xl font-nav text-4xl font-bold tracking-[-0.04em] text-slate-900 lg:text-5xl">
                   {t(
-                    "这个面板用于维护 `PassportAuthority` 中全局、印章类型级、护照级的发行策略规则。",
-                    "This panel updates `PassportAuthority` issuer policy rules at the global, stamp type, and passport levels.",
+                    "按全局、类型和 Passport 范围管理发章授权。",
+                    "Manage issuer authorization across global, type, and passport scope.",
+                  )}
+                </h1>
+                <p className="max-w-2xl text-base font-medium text-slate-900">
+                  {t(
+                    "加载一个 issuer 上下文并更新授权设置。",
+                    "Load one issuer context and update authorization settings.",
                   )}
                 </p>
               </div>
-            </div>
 
-            <div className="glass-card space-y-4 p-6">
-              <div className="space-y-1">
-                <p className="meta-label">{t("治理合约", "Governance Contract")}</p>
-                <h2 className="text-2xl font-black tracking-tight text-slate-900">
-                  {t("所有权快照", "Ownership Snapshot")}
-                </h2>
-              </div>
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4">
-                  <p className="meta-label">PassportAuthority</p>
-                  <p className="mt-2 break-all font-mono text-sm text-slate-700">
-                    {PASSPORT_AUTHORITY_ADDRESS || t("未配置", "Not configured")}
+              <div className="passport-dashboard-stats-grid grid gap-3">
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">{t("Access", "Access")}</p>
+                    <p
+                      className={`passport-dashboard-stat-card__value mt-2 font-nav font-bold tracking-tight ${accessToneClass}`}
+                    >
+                      {accessLabel}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    {accessHint}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4">
-                  <p className="meta-label">Owner</p>
-                  <p className="mt-2 break-all font-mono text-sm text-slate-700">
-                    {isLoadingAuthorityOwner
-                      ? t("加载中...", "Loading...")
-                      : authorityOwner || t("不可用", "Unavailable")}
+
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">Owner</p>
+                    <p className="mt-2 break-all font-mono text-sm font-semibold text-slate-900">
+                      {authorityOwnerLabel}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    PassportAuthority
                   </p>
                 </div>
-                <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4">
-                  <p className="meta-label">{t("当前钱包", "Current Wallet")}</p>
-                  <p className="mt-2 break-all font-mono text-sm text-slate-700">
-                    {connectedAddress || t("未连接", "Not connected")}
+
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">
+                      {t("Current Scope", "Current Scope")}
+                    </p>
+                    <p className="passport-dashboard-stat-card__value mt-2 font-nav font-bold tracking-tight text-cyan-700">
+                      {scopeLabel}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    {connectedWalletLabel}
                   </p>
                 </div>
-                <div
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] ${
-                    isAuthorityOwner
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-amber-100 text-amber-700"
-                  }`}
-                >
-                  {isAuthorityOwner ? <ShieldCheck size={14} /> : <ShieldX size={14} />}
-                  {isAuthorityOwner ? t("Owner 权限", "Owner access") : t("只读", "Read only")}
+
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">
+                      {t("Authorized Entries", "Authorized Entries")}
+                    </p>
+                    <p className="passport-dashboard-stat-card__value mt-2 font-nav font-bold tracking-tight text-cyan-700">
+                      {activePolicyCountLabel}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    {t(
+                      "Indexed from latest issuer policy events across global, type, and passport scope.",
+                      "Indexed from latest issuer policy events across global, type, and passport scope.",
+                    )}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
-          <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-            <div className="space-y-2">
-              <p className="meta-label">{t("策略编辑器", "Policy Editor")}</p>
-              <h2 className="text-3xl font-black tracking-tight text-slate-900">
-                {t("配置发行策略", "Configure Issuer Policy")}
-              </h2>
+        <section className="passport-dashboard-secondary space-y-6">
+          <div className="passport-dashboard-status panel-surface p-8">
+            <div className="passport-dashboard-panel-head flex items-start gap-4 border-b border-white/8 pb-6">
+              <div className="passport-dashboard-status__intro">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  {t("配置授权", "Configure Authorization")}
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm font-medium text-slate-600">
+                  {t(
+                    "选择范围并加载 issuer 上下文，然后更新状态、有效期和文档 CID。",
+                    "Select a scope, load the issuer context, then update status, validity, and document CID.",
+                  )}
+                </p>
+              </div>
             </div>
 
-            <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                <p className="meta-label">{t("策略作用域", "Policy Scope")}</p>
+            <div className="mt-8 space-y-4">
+              <div className="panel-soft p-5">
+                <p className="meta-label">{t("授权范围", "Authorization Scope")}</p>
                 <div className="mt-3 flex flex-wrap gap-3">
                   {(["global", "type", "passport"] as const).map((candidateScope) => (
                     <button
@@ -249,18 +492,18 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                       }`}
                     >
                       {candidateScope === "global"
-                        ? t("全局", "Global")
+                        ? t("Global", "Global")
                         : candidateScope === "type"
-                          ? t("类型级", "Type")
-                          : t("护照级", "Passport")}
+                          ? t("Type", "Type")
+                          : t("Passport", "Passport")}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+              <div className="panel-soft p-5">
                 <label className="meta-label" htmlFor="issuer-address">
-                  {t("发行方地址", "Issuer Address")}
+                  {t("Issuer Address", "Issuer Address")}
                 </label>
                 <input
                   id="issuer-address"
@@ -268,14 +511,14 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                   value={issuerAddress}
                   onChange={(event) => setIssuerAddress(event.target.value)}
                   placeholder="0x..."
-                  className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 font-mono text-sm text-slate-900 outline-none transition-all focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                  className="passport-dashboard-query__input mt-3 h-12 font-mono"
                 />
               </div>
 
               {scope === "type" ? (
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+                <div className="panel-soft p-5">
                   <label className="meta-label" htmlFor="type-stamp-type-id">
-                    {t("印章类型 ID", "Stamp Type ID")}
+                    {t("Stamp Type ID", "Stamp Type ID")}
                   </label>
                   <input
                     id="type-stamp-type-id"
@@ -283,15 +526,15 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                     value={stampTypeId}
                     onChange={(event) => setStampTypeId(event.target.value)}
                     placeholder="1"
-                    className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 font-mono text-sm text-slate-900 outline-none transition-all focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                    className="passport-dashboard-query__input mt-3 h-12 font-mono"
                   />
                 </div>
               ) : null}
 
               {scope === "passport" ? (
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+                <div className="panel-soft p-5">
                   <label className="meta-label" htmlFor="type-passport-id">
-                    {t("护照 ID", "Passport ID")}
+                    {t("Passport ID", "Passport ID")}
                   </label>
                   <input
                     id="type-passport-id"
@@ -299,82 +542,87 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                     value={passportId}
                     onChange={(event) => setPassportId(event.target.value)}
                     placeholder="1"
-                    className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 font-mono text-sm text-slate-900 outline-none transition-all focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                    className="passport-dashboard-query__input mt-3 h-12 font-mono"
                   />
                 </div>
               ) : null}
 
-              <button
-                onClick={() => {
-                  if (!canLoadContext) {
-                    return;
-                  }
+              <div className="passport-dashboard-primary__actions">
+                <button
+                  onClick={() => {
+                    if (!canLoadContext) {
+                      return;
+                    }
 
-                  void loadPolicyContext({
-                    issuerAddress: normalizedIssuer,
-                    passportId: parsedPassportId ?? undefined,
-                    scope,
-                    stampTypeId: parsedStampTypeId ?? undefined,
-                  });
-                }}
-                disabled={!canLoadContext || isLoadingPolicy}
-                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-slate-700 transition-all hover:border-sky-200 hover:text-sky-600 disabled:opacity-50"
-              >
-                <RefreshCw size={16} className={isLoadingPolicy ? "animate-spin" : ""} />
-                {t("加载策略", "Load Policy")}
-              </button>
+                    void loadPolicyContext({
+                      issuerAddress: normalizedIssuer,
+                      passportId: parsedPassportId ?? undefined,
+                      scope,
+                      stampTypeId: parsedStampTypeId ?? undefined,
+                    });
+                  }}
+                  disabled={!canLoadContext || isLoadingPolicy}
+                  className="passport-action-button passport-action-button--secondary"
+                >
+                  <RefreshCw size={16} className={isLoadingPolicy ? "animate-spin" : ""} />
+                  {t("加载授权", "Load Authorization")}
+                </button>
+              </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <label className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4 text-sm font-semibold text-slate-700">
+                <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-700">
                   <input
                     type="checkbox"
                     checked={enabled}
                     onChange={(event) => setEnabled(event.target.checked)}
                     className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                   />
-                  {t("启用策略", "Enable policy")}
+                  {t("启用授权", "Enable Authorization")}
                 </label>
-                <label className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4 text-sm font-semibold text-slate-700">
+                <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-700">
                   <input
                     type="checkbox"
                     checked={restrictToExplicitPassportList}
                     onChange={(event) => setRestrictToExplicitPassportList(event.target.checked)}
                     className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                   />
-                  {t("限制为显式护照名单", "Require explicit passport allowlist")}
+                  {t(
+                    "要求 Passport 级授权",
+                    "Require Passport-Level Authorization",
+                  )}
                 </label>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+                <div className="panel-soft p-5">
                   <label className="meta-label" htmlFor="valid-after">
-                    {t("生效起始时间", "Valid After")}
+                    {t("Valid After", "Valid After")}
                   </label>
                   <input
                     id="valid-after"
                     type="datetime-local"
                     value={validAfter}
                     onChange={(event) => setValidAfter(event.target.value)}
-                    className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                    className="passport-dashboard-query__input mt-3 h-12"
                   />
                 </div>
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+                <div className="panel-soft p-5">
                   <label className="meta-label" htmlFor="valid-until">
-                    {t("失效时间", "Valid Until")}
+                    {t("Valid Until", "Valid Until")}
                   </label>
                   <input
                     id="valid-until"
                     type="datetime-local"
                     value={validUntil}
                     onChange={(event) => setValidUntil(event.target.value)}
-                    className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                    className="passport-dashboard-query__input mt-3 h-12"
                   />
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+              <div className="panel-soft p-5">
                 <label className="meta-label" htmlFor="policy-cid">
-                  {t("策略 CID", "Policy CID")}
+                  {t("授权文档 CID", "Authorization Document CID")}
                 </label>
                 <input
                   id="policy-cid"
@@ -382,197 +630,265 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                   value={policyCID}
                   onChange={(event) => setPolicyCID(event.target.value)}
                   placeholder="ipfs://..."
-                  className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
-                />
-                <CidComposer
-                  accent="sky"
-                  defaultText={`{\n  "summary": "",\n  "rules": [],\n  "references": [],\n  "owner": ""\n}`}
-                  description={t(
-                    "为发行策略说明文档生成 CID，适合记录规则摘要、适用范围和链下附件。",
-                    "Generate the CID for issuer-policy documentation, including rule summaries, scope, and off-chain references.",
-                  )}
-                  fieldKey="issuer_policy"
-                  suggestedFileName="issuer-policy.json"
-                  value={policyCID}
-                  onChange={setPolicyCID}
+                  className="passport-dashboard-query__input mt-3 h-12"
                 />
               </div>
 
-              <button
-                onClick={() => {
-                  if (!canSubmitPolicy) {
-                    return;
-                  }
+              <div className="passport-dashboard-primary__actions">
+                <button
+                  onClick={() => {
+                    if (!canSubmitPolicy) {
+                      return;
+                    }
 
-                  void setIssuerPolicy(
-                    {
-                      issuerAddress: normalizedIssuer,
-                      passportId: parsedPassportId ?? undefined,
-                      scope,
-                      stampTypeId: parsedStampTypeId ?? undefined,
-                    },
-                    {
-                      enabled,
-                      policyCID,
-                      restrictToExplicitPassportList,
-                      validAfter: parsedValidAfter ?? 0n,
-                      validUntil: parsedValidUntil ?? 0n,
-                    },
-                  );
-                }}
-                disabled={!canSubmitPolicy || isSubmitting}
-                className="inline-flex items-center justify-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-sky-700 transition-all hover:bg-sky-100 disabled:opacity-50"
-              >
-                <ShieldCheck size={18} />
-                {isSubmitting ? t("提交中...", "Submitting...") : t("保存策略", "Save Policy")}
-              </button>
+                    void setIssuerPolicy(
+                      {
+                        issuerAddress: normalizedIssuer,
+                        passportId: parsedPassportId ?? undefined,
+                        scope,
+                        stampTypeId: parsedStampTypeId ?? undefined,
+                      },
+                      {
+                        enabled,
+                        policyCID,
+                        restrictToExplicitPassportList,
+                        validAfter: parsedValidAfter ?? 0n,
+                        validUntil: parsedValidUntil ?? 0n,
+                      },
+                    );
+                  }}
+                  disabled={!canSubmitPolicy || isSubmitting}
+                  className="passport-action-button passport-action-button--primary"
+                >
+                  <ShieldCheck size={16} />
+                  {isSubmitting ? t("提交中...", "Submitting...") : t("保存授权", "Save Authorization")}
+                </button>
+              </div>
 
               {scope === "passport" && parsedPassportId !== null ? (
-                <div className="space-y-4 rounded-[2rem] border border-slate-100 bg-slate-50/60 px-5 py-5">
-                  <div>
-                    <p className="meta-label">{t("护照白名单模式", "Passport Allowlist Mode")}</p>
-                    <p className="mt-2 text-sm font-medium text-slate-600">
-                      {t(
-                        "启用后，这本护照必须依赖护照级显式授权才允许对应发行行为。",
-                        "When enabled, issuance for this passport requires explicit passport-level authorization.",
-                      )}
-                    </p>
-                  </div>
-                  <label className="flex items-center gap-3 text-sm font-semibold text-slate-700">
+                <div className="panel-soft p-5">
+                  <p className="meta-label">{t("Passport 白名单强制模式", "Passport Allowlist Enforcement")}</p>
+                  <p className="mt-3 text-sm font-medium text-slate-600">
+                    {t(
+                      "开启后，该 Passport 仅接受显式的 Passport 级授权。",
+                      "When enabled, this passport only accepts explicit passport-level authorization.",
+                    )}
+                  </p>
+                  <label className="mt-4 flex items-center gap-3 text-sm font-semibold text-slate-700">
                     <input
                       type="checkbox"
                       checked={allowlistModeInput}
                       onChange={(event) => setAllowlistModeInput(event.target.checked)}
                       className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                     />
-                    {t("启用白名单模式", "Enable allowlist mode")}
+                    {t("启用白名单强制模式", "Enable Allowlist Enforcement")}
                   </label>
-                  <button
-                    onClick={() => void setPassportAllowlistMode(parsedPassportId, allowlistModeInput)}
-                    disabled={!isAuthorityOwner || isSubmitting}
-                    className="inline-flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-slate-700 transition-all hover:border-sky-200 hover:text-sky-600 disabled:opacity-50"
-                  >
-                    <Tags size={18} />
-                    {t("更新白名单模式", "Update Allowlist Mode")}
-                  </button>
+                  <div className="passport-dashboard-primary__actions mt-4">
+                    <button
+                      onClick={() => void setPassportAllowlistMode(parsedPassportId, allowlistModeInput)}
+                      disabled={!isAuthorityOwner || isSubmitting}
+                      className="passport-action-button passport-action-button--secondary"
+                    >
+                      <Tags size={16} />
+                      {t("更新白名单强制模式", "Update Allowlist Enforcement")}
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-              <p className="meta-label">{t("已加载上下文", "Loaded Context")}</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                {t("策略快照", "Policy Snapshot")}
-              </h2>
-              <div className="mt-6 space-y-4">
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                  <p className="meta-label">{t("作用域", "Scope")}</p>
-                  <p className="mt-2 text-sm font-semibold uppercase tracking-[0.18em] text-slate-700">
-                    {scope === "global"
-                      ? t("全局", "Global")
-                      : scope === "type"
-                        ? t("类型级", "Type")
-                        : t("护照级", "Passport")}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                  <p className="meta-label">{t("当前策略状态", "Current Policy Status")}</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-700">
-                    {currentPolicyStateLabel(currentPolicy)}
-                  </p>
-                </div>
-                {currentPolicy ? (
-                  <>
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                      <p className="meta-label">{t("有效时间窗", "Validity Window")}</p>
-                      <p className="mt-2 text-sm font-semibold text-slate-700">
-                        {currentPolicy.validAfter === 0n
-                          ? t("无起始限制", "No start limit")
-                          : t(
-                              `起始于 ${new Date(Number(currentPolicy.validAfter) * 1000).toLocaleString()}`,
-                              `Starts at ${new Date(Number(currentPolicy.validAfter) * 1000).toLocaleString()}`,
-                            )}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-slate-700">
-                        {currentPolicy.validUntil === 0n
-                          ? t("不过期", "No expiration")
-                          : t(
-                              `截止于 ${new Date(Number(currentPolicy.validUntil) * 1000).toLocaleString()}`,
-                              `Expires at ${new Date(Number(currentPolicy.validUntil) * 1000).toLocaleString()}`,
-                            )}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                      <p className="meta-label">{t("策略 CID", "Policy CID")}</p>
-                      <p className="mt-2 break-all font-mono text-sm text-slate-700">
-                        {currentPolicy.policyCID || t("未设置", "Not set")}
-                      </p>
-                    </div>
-                  </>
-                ) : null}
-                {scope === "passport" ? (
-                  <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                    <p className="meta-label">{t("白名单模式", "Allowlist Mode")}</p>
-                    <p className="mt-2 text-sm font-semibold text-slate-700">
-                      {passportAllowlistMode === null
-                        ? t("未加载", "Not loaded")
-                        : passportAllowlistMode
-                          ? t("启用", "Enabled")
-                          : t("停用", "Disabled")}
-                    </p>
-                  </div>
-                ) : null}
-                {statusMessage ? (
-                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
-                    {statusMessage}
-                  </div>
-                ) : null}
-                {error ? (
-                  <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-700">
-                    {error}
-                  </div>
-                ) : null}
+          <div className="passport-dashboard-status panel-surface p-8">
+            <div className="passport-dashboard-panel-head flex items-start gap-4 border-b border-white/8 pb-6">
+              <div className="passport-dashboard-status__intro">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  {t("授权快照", "Authorization Snapshot")}
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm font-medium text-slate-600">
+                  {t(
+                    "查看当前已加载的授权状态。",
+                    "Review the currently loaded authorization before making changes.",
+                  )}
+                </p>
               </div>
             </div>
 
-            <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-              <p className="meta-label">{t("业务说明", "Business Notes")}</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                {t("判定顺序", "Decision Order")}
-              </h2>
-              <div className="mt-6 space-y-4">
-                <div className="rounded-2xl bg-sky-50 px-5 py-5">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-sky-600 shadow-sm">
-                    <Tags size={20} />
-                  </div>
-                  <p className="mt-4 font-black text-slate-900">{t("策略优先级", "Policy Priority")}</p>
-                  <p className="mt-2 text-sm font-medium text-slate-600">
-                    {t(
-                      "先检查 `passport` 策略，再检查 `type`，最后检查 `global`。第一个命中的有效授权决定是否允许签发。",
-                      "Check `passport` first, then `type`, and finally `global`. The first matching valid rule decides whether issuance is allowed.",
-                    )}
+            <div className="mt-8 space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="panel-soft p-5">
+                  <p className="meta-label">{t("Scope", "Scope")}</p>
+                  <p className="mt-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-700">
+                    {scopeLabel}
                   </p>
                 </div>
-                <div className="rounded-2xl bg-orange-50 px-5 py-5">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm">
-                    <Wallet size={20} />
-                  </div>
-                  <p className="mt-4 font-black text-slate-900">{t("限制标记", "Restriction Flag")}</p>
-                  <p className="mt-2 text-sm font-medium text-slate-600">
-                    {t(
-                      "`restrictToExplicitPassportList` 表示该策略只有在发行方同时拥有护照级显式授权时才会生效。",
-                      "`restrictToExplicitPassportList` means the rule only applies when the issuer also has explicit passport-level authorization.",
-                    )}
+                <div className="panel-soft p-5">
+                  <p className="meta-label">{t("当前授权状态", "Current Authorization Status")}</p>
+                  <p className="mt-3 text-sm font-semibold text-slate-700">
+                    {currentPolicyStateLabel(currentPolicy)}
                   </p>
                 </div>
-                {!isConfigured ? (
-                  <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-700">
-                    {t("前端环境中尚未配置 Passport 合约。", "Passport contracts are not configured in the frontend environment.")}
-                  </div>
-                ) : null}
               </div>
+
+              {currentPolicy ? (
+                <>
+                  <div className="panel-soft p-5">
+                    <p className="meta-label">{t("Validity Window", "Validity Window")}</p>
+                    <p className="mt-3 text-sm font-semibold text-slate-700">
+                      {currentPolicy.validAfter === 0n
+                        ? t("No start limit", "No start limit")
+                        : t(
+                          `Starts at ${new Date(Number(currentPolicy.validAfter) * 1000).toLocaleString()}`,
+                          `Starts at ${new Date(Number(currentPolicy.validAfter) * 1000).toLocaleString()}`,
+                        )}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-700">
+                      {currentPolicy.validUntil === 0n
+                        ? t("No expiration", "No expiration")
+                        : t(
+                          `Expires at ${new Date(Number(currentPolicy.validUntil) * 1000).toLocaleString()}`,
+                          `Expires at ${new Date(Number(currentPolicy.validUntil) * 1000).toLocaleString()}`,
+                        )}
+                    </p>
+                  </div>
+
+                  <div className="panel-soft p-5">
+                    <p className="meta-label">{t("授权文档 CID", "Authorization Document CID")}</p>
+                    <p className="mt-3 break-all font-mono text-sm text-slate-700">
+                      {currentPolicy.policyCID || t("Not set", "Not set")}
+                    </p>
+                  </div>
+                </>
+              ) : null}
+
+              {scope === "passport" ? (
+                <div className="panel-soft p-5">
+                  <p className="meta-label">{t("白名单强制模式", "Allowlist Enforcement")}</p>
+                  <p className="mt-3 text-sm font-semibold text-slate-700">
+                    {passportAllowlistMode === null
+                      ? t("Not loaded", "Not loaded")
+                      : passportAllowlistMode
+                        ? t("Enabled", "Enabled")
+                        : t("Disabled", "Disabled")}
+                  </p>
+                </div>
+              ) : null}
+
+              {statusMessage ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                  {statusMessage}
+                </div>
+              ) : null}
+
+              {error ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                  {error}
+                </div>
+              ) : null}
+
+              {!isConfigured ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                  {t(
+                    "Passport contracts are not configured in the frontend environment.",
+                    "Passport contracts are not configured in the frontend environment.",
+                  )}
+                </div>
+              ) : null}
+
+              <div className="panel-soft p-5">
+                <p className="meta-label">{t("Authority Contract", "Authority Contract")}</p>
+                <p className="mt-3 break-all font-mono text-sm text-slate-700">
+                  {PASSPORT_AUTHORITY_ADDRESS || t("Not configured", "Not configured")}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="passport-dashboard-status panel-surface p-8">
+            <div className="passport-dashboard-panel-head flex items-start justify-between gap-4 border-b border-white/8 pb-6">
+              <div className="passport-dashboard-status__intro">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  {t("已授权地址", "Authorized Addresses")}
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm font-medium text-slate-600">
+                  {t(
+                    "按范围查看已授权地址，并一键载入编辑器。",
+                    "Browse authorized addresses by scope, then load any entry into the editor.",
+                  )}
+                </p>
+              </div>
+
+              <button
+                onClick={() => void refreshPolicyList()}
+                disabled={!isPolicyListConfigured || isLoadingPolicyList}
+                className="passport-action-button passport-action-button--secondary"
+              >
+                <RefreshCw size={16} className={isLoadingPolicyList ? "animate-spin" : ""} />
+                {t("Refresh List", "Refresh List")}
+              </button>
+            </div>
+
+            <div className="mt-8 space-y-4">
+              <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-medium text-sky-900">
+                <p className="font-semibold">{t("On-chain Source", "On-chain Source")}</p>
+                <p className="mt-2">
+                  {t(
+                    "由于 PassportAuthority 不暴露可枚举的 issuer 授权映射，这个列表会根据最新的 GlobalIssuerPolicySet、TypeIssuerPolicySet 和 PassportIssuerPolicySet 事件重建。它只反映各范围的启用状态；精确时间窗口仍需查看快照面板。",
+                    "Because PassportAuthority does not expose enumerable issuer authorization mappings, this list is rebuilt from the latest GlobalIssuerPolicySet, TypeIssuerPolicySet, and PassportIssuerPolicySet events. It reflects enabled states by scope; exact validity windows still need the snapshot panel.",
+                  )}
+                </p>
+              </div>
+
+              {policyListError ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                  {policyListError}
+                </div>
+              ) : null}
+
+              {!isPolicyListConfigured ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                  {t(
+                    "Passport contracts are not configured in the frontend environment.",
+                    "Passport contracts are not configured in the frontend environment.",
+                  )}
+                </div>
+              ) : isLoadingPolicyList ? (
+                <div className="panel-soft p-5 text-sm font-semibold text-slate-700">
+                  {t(
+                    "正在从 PassportAuthority 事件加载已授权地址列表...",
+                    "Loading authorized address lists from PassportAuthority events...",
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {renderPolicyGroup(
+                    "global",
+                    t("Global Scope", "Global Scope"),
+                    t(
+                      "这些地址当前具有全局发章授权。",
+                      "These addresses currently have active global issuer authorization.",
+                    ),
+                    policies.global,
+                  )}
+                  {renderPolicyGroup(
+                    "type",
+                    t("Type Scope", "Type Scope"),
+                    t(
+                      "这些地址当前被授权为一个或多个指定类型发章。",
+                      "These addresses are currently authorized for one or more stamp types.",
+                    ),
+                    policies.type,
+                  )}
+                  {renderPolicyGroup(
+                    "passport",
+                    t("Passport Scope", "Passport Scope"),
+                    t(
+                      "这些地址当前被授权为一个或多个指定 Passport 发章。",
+                      "These addresses are currently authorized for one or more passports.",
+                    ),
+                    policies.passport,
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </section>

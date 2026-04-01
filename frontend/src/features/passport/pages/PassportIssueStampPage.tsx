@@ -1,9 +1,8 @@
-import { CalendarDays, Link2, Network, PenSquare, ShieldCheck, ShieldX, Tags } from "lucide-react";
+import { Link2, Network, PenSquare } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { CHRONICLE_STAMP_ADDRESS } from "../../../config/passport";
-import CidComposer from "../components/CidComposer";
 import PassportShell from "../components/PassportShell";
 import { usePassportIssueStamp } from "../hooks/usePassportIssueStamp";
 import { usePassportLocale } from "../i18n";
@@ -38,6 +37,18 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
   const [metadataCID, setMetadataCID] = useState("");
   const [occurredAt, setOccurredAt] = useState("");
   const [supersedesStampId, setSupersedesStampId] = useState("");
+  const parsedPassportId = useMemo(
+    () => (/^\d+$/.test(passportId.trim()) ? BigInt(passportId.trim()) : null),
+    [passportId],
+  );
+  const parsedStampTypeId = useMemo(
+    () => (/^\d+$/.test(stampTypeId.trim()) ? BigInt(stampTypeId.trim()) : null),
+    [stampTypeId],
+  );
+  const parsedSupersedesStampId = useMemo(
+    () => (/^\d+$/.test(supersedesStampId.trim()) ? BigInt(supersedesStampId.trim()) : 0n),
+    [supersedesStampId],
+  );
   const {
     availableStampTypes,
     canIssue,
@@ -57,21 +68,10 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
     address: connectedAddress,
     ensureSupportedChain,
     hasCorrectChain,
+    initialPassportId: parsedPassportId,
+    initialStampTypeId: parsedStampTypeId,
     isConnected,
   });
-
-  const parsedPassportId = useMemo(
-    () => (/^\d+$/.test(passportId.trim()) ? BigInt(passportId.trim()) : null),
-    [passportId],
-  );
-  const parsedStampTypeId = useMemo(
-    () => (/^\d+$/.test(stampTypeId.trim()) ? BigInt(stampTypeId.trim()) : null),
-    [stampTypeId],
-  );
-  const parsedSupersedesStampId = useMemo(
-    () => (/^\d+$/.test(supersedesStampId.trim()) ? BigInt(supersedesStampId.trim()) : 0n),
-    [supersedesStampId],
-  );
   const configuredTypeEmptyState = useMemo(() => {
     if (isLoadingAvailableStampTypes || availableStampTypes.length > 0) {
       return "";
@@ -79,20 +79,20 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
 
     if (!isConfigured) {
       return t(
-        "当前前端还没有完整配置 Passport 合约地址，因此无法从链上加载已配置的印章类型。",
+        "The frontend does not have a complete Passport contract configuration yet, so it cannot load configured stamp types from chain.",
         "The frontend does not have a complete Passport contract configuration yet, so it cannot load configured stamp types from chain.",
       );
     }
 
     if (isConnected && !hasCorrectChain) {
       return t(
-        `当前钱包网络是 ${currentChainName}，目标网络是 ${targetChainName}。请先切换到目标网络，再读取印章类型列表。`,
+        `Your wallet is connected to ${currentChainName}, but the target network is ${targetChainName}. Switch networks before loading configured stamp types.`,
         `Your wallet is connected to ${currentChainName}, but the target network is ${targetChainName}. Switch networks before loading configured stamp types.`,
       );
     }
 
     return t(
-      "当前链上还没有任何已配置的印章类型。请先到“印章类型管理”页面执行一次配置，成功后这里就会出现下拉选项。",
+      "No configured stamp types were found on the current chain. Configure at least one stamp type in Stamp Type Admin first, and it will then appear in this dropdown.",
       "No configured stamp types were found on the current chain. Configure at least one stamp type in Stamp Type Admin first, and it will then appear in this dropdown.",
     );
   }, [
@@ -114,90 +114,106 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
     void loadPermission(parsedPassportId, parsedStampTypeId);
   }, [loadPermission, parsedPassportId, parsedStampTypeId]);
 
+  const connectedWalletLabel = connectedAddress || t("Not connected", "Not connected");
+  const accessLabel = isLoadingPermission
+    ? t("Checking", "Checking")
+    : canIssue
+      ? t("Authorized Issuer", "Authorized Issuer")
+      : t("Permission Required", "Permission Required");
+  const accessToneClass = isLoadingPermission
+    ? "text-slate-500"
+    : canIssue
+      ? "text-emerald-700"
+      : "text-amber-700";
+
   return (
     <PassportShell currentKey="issue">
-      <div className="space-y-8">
-        <section className="rounded-[2.5rem] bg-[linear-gradient(135deg,_rgba(255,247,237,1),_rgba(255,255,255,1)_45%,_rgba(239,246,255,0.92))] p-10 shadow-[0_24px_60px_-28px_rgba(251,146,60,0.28)]">
-          <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
-            <div className="space-y-4">
-              <span className="inline-flex rounded-full bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-orange-500 shadow-sm">
-                {t("履历签发", "Chronicle Issuance")}
+      <div className="passport-dashboard-body">
+        <section className="passport-dashboard-primary panel-surface accent-grid relative overflow-hidden p-8 lg:p-10">
+          <div className="passport-dashboard-primary__grid relative">
+            <div className="passport-dashboard-primary__content space-y-5">
+              <span className="passport-dashboard-primary__header">
+                {t("Issue Stamp", "Issue Stamp")}
               </span>
+
               <div className="space-y-3">
-                <h1 className="text-5xl font-black tracking-[-0.04em] text-slate-950">
-                  {t("为护照签发一条履历印章。", "Issue a chronicle stamp to a passport.")}
-                </h1>
-                <p className="max-w-2xl text-base font-medium text-slate-600">
+                <h1 className="max-w-3xl font-nav text-4xl font-bold tracking-[-0.04em] text-slate-900 lg:text-5xl">
                   {t(
-                    "这个流程会直接使用机构钱包调用 `ChronicleStamp.issueStamp(...)`。",
-                    "This flow calls `ChronicleStamp.issueStamp(...)` directly from the institution wallet.",
+                    "Issue a chronicle stamp with a focused set of operational inputs.",
+                    "Issue a chronicle stamp with a focused set of operational inputs.",
+                  )}
+                </h1>
+                <p className="max-w-2xl text-base font-medium text-slate-900">
+                  {t(
+                    "Select the passport and stamp type, add occurred time and metadata, then submit directly through ChronicleStamp.issueStamp(...).",
+                    "Select the passport and stamp type, add occurred time and metadata, then submit directly through ChronicleStamp.issueStamp(...).",
                   )}
                 </p>
               </div>
-            </div>
 
-            <div className="glass-card space-y-4 p-6">
-              <div className="space-y-1">
-                <p className="meta-label">{t("权限快照", "Permission Snapshot")}</p>
-                <h2 className="text-2xl font-black tracking-tight text-slate-900">{t("发行权限", "Issuer Access")}</h2>
-              </div>
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4">
-                  <p className="meta-label">{t("当前钱包", "Connected Wallet")}</p>
-                  <p className="mt-2 break-all font-mono text-sm text-slate-700">
-                    {connectedAddress || t("未连接", "Not connected")}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4">
-                  <p className="meta-label">{t("目标网络 / 当前网络", "Target / Current Network")}</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-800">
-                    {targetChainName} / {isConnected ? currentChainName : t("未连接", "Disconnected")}
-                  </p>
-                  <p className="mt-1 break-all font-mono text-xs text-slate-500">
-                    ChronicleStamp: {CHRONICLE_STAMP_ADDRESS || t("未配置", "Not configured")}
-                  </p>
-                </div>
-                <div
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] ${
-                    canIssue ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                  }`}
-                >
-                  {canIssue ? <ShieldCheck size={14} /> : <ShieldX size={14} />}
-                  {isLoadingPermission
-                    ? t("检查中", "Checking")
-                    : canIssue
-                      ? t("已授权发行方", "Authorized Issuer")
-                      : t("需要权限", "Permission Required")}
-                </div>
-                {stampType ? (
-                  <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4">
-                    <p className="meta-label">{t("印章类型", "Stamp Type")}</p>
-                    <p className="mt-2 font-semibold text-slate-900">
-                      {stampType.name || t("未配置", "Unconfigured")} ({stampType.code || "NO_CODE"})
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {stampType.active ? t("启用", "Active") : t("停用", "Inactive")} /{" "}
-                      {stampType.singleton ? t("单例", "Singleton") : t("可重复", "Repeatable")}
+              <div className="passport-dashboard-stats-grid grid gap-3">
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">{t("Access", "Access")}</p>
+                    <p
+                      className={`passport-dashboard-stat-card__value mt-2 font-nav font-bold tracking-tight ${accessToneClass}`}
+                    >
+                      {accessLabel}
                     </p>
                   </div>
-                ) : null}
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    {connectedWalletLabel}
+                  </p>
+                </div>
+
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">
+                      {t("Target / Current Network", "Target / Current Network")}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                      {targetChainName} /{" "}
+                      {isConnected ? currentChainName : t("Disconnected", "Disconnected")}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    ChronicleStamp
+                  </p>
+                </div>
+
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">{t("Stamp Type", "Stamp Type")}</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                      {stampType
+                        ? `${stampType.name || "Unconfigured"} (${stampType.code || "NO_CODE"})`
+                        : "--"}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    {CHRONICLE_STAMP_ADDRESS || t("Not configured", "Not configured")}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-            <div className="space-y-2">
-              <p className="meta-label">{t("印章输入", "Stamp Input")}</p>
-              <h2 className="text-3xl font-black tracking-tight text-slate-900">{t("签发印章", "Issue Stamp")}</h2>
+        <section className="passport-dashboard-secondary space-y-6">
+          <div className="passport-dashboard-status panel-surface p-8">
+            <div className="passport-dashboard-panel-head flex items-start gap-4 border-b border-white/8 pb-6">
+              <div className="passport-dashboard-status__intro">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  {t("Stamp Input", "Stamp Input")}
+                </h2>
+              </div>
             </div>
 
-            <div className="mt-6 grid gap-4">
+            <div className="mt-8 grid gap-4">
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+                <div className="panel-soft p-5">
                   <label className="meta-label" htmlFor="issue-passport-id">
-                    {t("护照 ID", "Passport ID")}
+                    {t("Passport ID", "Passport ID")}
                   </label>
                   <input
                     id="issue-passport-id"
@@ -205,13 +221,14 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                     value={passportId}
                     onChange={(event) => setPassportId(event.target.value)}
                     placeholder="1"
-                    className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 font-mono text-sm text-slate-900 outline-none transition-all focus:border-orange-300 focus:ring-4 focus:ring-orange-100"
+                    className="passport-dashboard-query__input mt-3 h-12 font-mono"
                   />
                 </div>
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+
+                <div className="panel-soft p-5">
                   <div className="flex items-center justify-between gap-3">
                     <label className="meta-label" htmlFor="issue-stamp-type-id">
-                      {t("印章类型", "Stamp Type")}
+                      {t("Stamp Type", "Stamp Type")}
                     </label>
                     <button
                       type="button"
@@ -220,30 +237,30 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                       className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 transition-colors hover:text-orange-600 disabled:opacity-50"
                     >
                       {isLoadingAvailableStampTypes
-                        ? t("加载中...", "Loading...")
-                        : t("刷新类型", "Refresh Types")}
+                        ? t("Loading...", "Loading...")
+                        : t("Refresh Types", "Refresh Types")}
                     </button>
                   </div>
                   <select
                     id="issue-stamp-type-id"
                     value={stampTypeId}
                     onChange={(event) => setStampTypeId(event.target.value)}
-                    className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all focus:border-orange-300 focus:ring-4 focus:ring-orange-100"
+                    className="passport-dashboard-query__input mt-3 h-12"
                   >
                     <option value="">
                       {availableStampTypes.length > 0
-                        ? t("请选择已配置印章类型", "Select a configured stamp type")
-                        : t("暂无已配置类型，可手动输入 ID", "No configured types found yet")}
+                        ? t("Select a configured stamp type", "Select a configured stamp type")
+                        : t("No configured types found yet", "No configured types found yet")}
                     </option>
                     {availableStampTypes.map((typeOption) => (
                       <option
                         key={typeOption.stampTypeId.toString()}
                         value={typeOption.stampTypeId.toString()}
                       >
-                        {`#${typeOption.stampTypeId.toString()} · ${
-                          typeOption.name || t("未命名", "Unnamed")
-                        } · ${typeOption.code || "NO_CODE"}${
-                          typeOption.active ? "" : ` · ${t("停用", "Inactive")}`
+                        {`#${typeOption.stampTypeId.toString()} | ${
+                          typeOption.name || t("Unnamed", "Unnamed")
+                        } | ${typeOption.code || "NO_CODE"}${
+                          typeOption.active ? "" : ` | ${t("Inactive", "Inactive")}`
                         }`}
                       </option>
                     ))}
@@ -252,11 +269,14 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                     type="text"
                     value={stampTypeId}
                     onChange={(event) => setStampTypeId(event.target.value)}
-                    placeholder={t("或手动输入印章类型 ID，例如 1", "Or enter a stamp type ID manually, e.g. 1")}
-                    className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 font-mono text-sm text-slate-900 outline-none transition-all focus:border-orange-300 focus:ring-4 focus:ring-orange-100"
+                    placeholder={t(
+                      "Or enter a stamp type ID manually, e.g. 1",
+                      "Or enter a stamp type ID manually, e.g. 1",
+                    )}
+                    className="passport-dashboard-query__input mt-3 h-12 font-mono"
                   />
                   {configuredTypeEmptyState ? (
-                    <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-4 text-sm font-medium text-amber-800">
+                    <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-4 text-sm font-medium text-amber-800">
                       <div className="flex items-start gap-3">
                         <div className="mt-0.5 text-amber-600">
                           <Network size={16} />
@@ -268,7 +288,7 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                             className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-amber-700 transition-colors hover:text-amber-800"
                           >
                             <Link2 size={14} />
-                            {t("前往印章类型管理", "Open Stamp Type Admin")}
+                            {t("Open Stamp Type Admin", "Open Stamp Type Admin")}
                           </Link>
                         </div>
                       </div>
@@ -277,22 +297,22 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+              <div className="panel-soft p-5">
                 <label className="meta-label" htmlFor="issue-occurred-at">
-                  {t("发生时间", "Occurred At")}
+                  {t("Occurred At", "Occurred At")}
                 </label>
                 <input
                   id="issue-occurred-at"
                   type="datetime-local"
                   value={occurredAt}
                   onChange={(event) => setOccurredAt(event.target.value)}
-                  className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all focus:border-orange-300 focus:ring-4 focus:ring-orange-100"
+                  className="passport-dashboard-query__input mt-3 h-12"
                 />
               </div>
 
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+              <div className="panel-soft p-5">
                 <label className="meta-label" htmlFor="issue-metadata-cid">
-                  {t("元数据 CID", "Metadata CID")}
+                  {t("Metadata CID", "Metadata CID")}
                 </label>
                 <input
                   id="issue-metadata-cid"
@@ -300,25 +320,13 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                   value={metadataCID}
                   onChange={(event) => setMetadataCID(event.target.value)}
                   placeholder="ipfs://..."
-                  className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all focus:border-orange-300 focus:ring-4 focus:ring-orange-100"
-                />
-                <CidComposer
-                  accent="orange"
-                  defaultText={`{\n  "summary": "",\n  "details": "",\n  "attachments": [],\n  "operator": ""\n}`}
-                  description={t(
-                    "为这次印章签发的业务详情生成 CID，例如维修记录、认证附件或展览说明。",
-                    "Generate the CID for this stamp issuance payload, such as maintenance records, authentication attachments, or exhibition notes.",
-                  )}
-                  fieldKey="issue_stamp_metadata"
-                  suggestedFileName="stamp-metadata.json"
-                  value={metadataCID}
-                  onChange={setMetadataCID}
+                  className="passport-dashboard-query__input mt-3 h-12"
                 />
               </div>
 
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
+              <div className="panel-soft p-5">
                 <label className="meta-label" htmlFor="issue-supersedes">
-                  {t("替代印章 ID", "Supersedes Stamp ID")}
+                  {t("Supersedes Stamp ID", "Supersedes Stamp ID")}
                 </label>
                 <input
                   id="issue-supersedes"
@@ -326,100 +334,105 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                   value={supersedesStampId}
                   onChange={(event) => setSupersedesStampId(event.target.value)}
                   placeholder={latestEffectiveStampId?.toString() || "0"}
-                  className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 font-mono text-sm text-slate-900 outline-none transition-all focus:border-orange-300 focus:ring-4 focus:ring-orange-100"
+                  className="passport-dashboard-query__input mt-3 h-12 font-mono"
                 />
               </div>
 
-              <button
-                onClick={() => {
-                  if (parsedPassportId === null || parsedStampTypeId === null) {
-                    return;
-                  }
+              <div className="passport-dashboard-primary__actions">
+                <button
+                  onClick={() => {
+                    if (parsedPassportId === null || parsedStampTypeId === null) {
+                      return;
+                    }
 
-                  void submitIssueStamp({
-                    metadataCID,
-                    occurredAt: toUnixSeconds(occurredAt),
-                    passportId: parsedPassportId,
-                    stampTypeId: parsedStampTypeId,
-                    supersedesStampId: parsedSupersedesStampId,
-                  });
-                }}
-                disabled={
-                  parsedPassportId === null || parsedStampTypeId === null || !canIssue || isSubmitting
-                }
-                className="mt-2 inline-flex items-center justify-center gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-orange-700 transition-all hover:bg-orange-100 disabled:opacity-50"
-              >
-                <PenSquare size={18} />
-                {isSubmitting ? t("提交中...", "Submitting...") : t("签发印章", "Issue Stamp")}
-              </button>
+                    void submitIssueStamp({
+                      metadataCID,
+                      occurredAt: toUnixSeconds(occurredAt),
+                      passportId: parsedPassportId,
+                      stampTypeId: parsedStampTypeId,
+                      supersedesStampId: parsedSupersedesStampId,
+                    });
+                  }}
+                  disabled={
+                    parsedPassportId === null ||
+                    parsedStampTypeId === null ||
+                    !canIssue ||
+                    isSubmitting
+                  }
+                  className="passport-action-button passport-action-button--primary"
+                >
+                  <PenSquare size={16} />
+                  {isSubmitting
+                    ? t("Submitting...", "Submitting...")
+                    : t("Issue Stamp", "Issue Stamp")}
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-              <p className="meta-label">{t("结果", "Result")}</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">{t("交易结果", "Transaction Outcome")}</h2>
-              <div className="mt-6 space-y-4">
-                {statusMessage ? (
-                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
-                    {statusMessage}
-                  </div>
-                ) : null}
-                {error ? (
-                  <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-700">
-                    {error}
-                  </div>
-                ) : null}
-                {issuedStampId !== null ? (
-                  <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                    <p className="meta-label">{t("已签发印章", "Issued Stamp")}</p>
-                    <p className="mt-2 text-lg font-black text-slate-900">
-                      #{issuedStampId.toString()}
-                    </p>
-                    {parsedPassportId !== null ? (
-                      <Link
-                        to={`/passport/${parsedPassportId.toString()}`}
-                        className="mt-4 inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-orange-600 transition-colors hover:text-orange-700"
-                      >
-                        <Link2 size={16} />
-                        {t("打开护照详情", "Open Passport Detail")}
-                      </Link>
-                    ) : null}
-                  </div>
-                ) : null}
+          <div className="passport-dashboard-status panel-surface p-8">
+            <div className="passport-dashboard-panel-head flex items-start gap-4 border-b border-white/8 pb-6">
+              <div className="passport-dashboard-status__intro">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  {t("Transaction Outcome", "Transaction Outcome")}
+                </h2>
               </div>
             </div>
 
-            <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-              <p className="meta-label">{t("业务说明", "Operational Notes")}</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">{t("签发上下文", "Issuance Context")}</h2>
-              <div className="mt-6 space-y-4">
-                <div className="rounded-2xl bg-orange-50 px-5 py-5">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm">
-                    <Tags size={20} />
-                  </div>
-                  <p className="mt-4 font-black text-slate-900">{t("最新生效印章", "Latest Effective Stamp")}</p>
-                  <p className="mt-2 text-sm font-medium text-slate-600">
-                    {latestEffectiveStampId !== null
-                      ? t(`当前最新生效印章：#${latestEffectiveStampId.toString()}`, `Current latest effective stamp: #${latestEffectiveStampId.toString()}`)
-                      : t("这本护照在该印章类型下还没有生效中的记录。", "No effective stamp exists yet for this passport and stamp type.")}
-                  </p>
+            <div className="mt-8 space-y-4">
+              {statusMessage ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                  {statusMessage}
                 </div>
-                <div className="rounded-2xl bg-sky-50 px-5 py-5">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-sky-600 shadow-sm">
-                    <CalendarDays size={20} />
-                  </div>
-                  <p className="mt-4 font-black text-slate-900">{t("发生时间", "Occurred Time")}</p>
-                  <p className="mt-2 text-sm font-medium text-slate-600">
-                    {t("`occurredAt` 必须是过去或当前时间戳，未来时间会触发回滚。", "`occurredAt` must be a past or current timestamp. Future timestamps will revert.")}
-                  </p>
+              ) : null}
+
+              {error ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                  {error}
                 </div>
-                {!isConfigured ? (
-                  <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-700">
-                    {t("前端环境中尚未配置 Passport 合约。", "Passport contracts are not configured in the frontend environment.")}
-                  </div>
-                ) : null}
+              ) : null}
+
+              {issuedStampId !== null ? (
+                <div className="panel-soft p-5">
+                  <p className="meta-label">{t("Issued Stamp", "Issued Stamp")}</p>
+                  <p className="mt-3 text-lg font-black text-slate-900">
+                    #{issuedStampId.toString()}
+                  </p>
+                  {parsedPassportId !== null ? (
+                    <Link
+                      to={`/passport/${parsedPassportId.toString()}`}
+                      className="mt-4 inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-orange-600 transition-colors hover:text-orange-700"
+                    >
+                      <Link2 size={16} />
+                      {t("Open Passport Detail", "Open Passport Detail")}
+                    </Link>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className="panel-soft p-5">
+                <p className="meta-label">{t("Latest Effective Stamp", "Latest Effective Stamp")}</p>
+                <p className="mt-3 text-sm font-semibold text-slate-700">
+                  {latestEffectiveStampId !== null
+                    ? t(
+                      `Current latest effective stamp: #${latestEffectiveStampId.toString()}`,
+                      `Current latest effective stamp: #${latestEffectiveStampId.toString()}`,
+                    )
+                    : t(
+                      "No effective stamp exists yet for this passport and stamp type.",
+                      "No effective stamp exists yet for this passport and stamp type.",
+                    )}
+                </p>
               </div>
+
+              {!isConfigured ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                  {t(
+                    "Passport contracts are not configured in the frontend environment.",
+                    "Passport contracts are not configured in the frontend environment.",
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
         </section>

@@ -1,5 +1,6 @@
 import { Languages, LogOut, Search } from "lucide-react";
 import { Link } from "react-router-dom";
+
 import { usePassportLocale } from "../features/passport/i18n";
 
 type AppNavigationProps = {
@@ -26,6 +27,11 @@ const navigationItems = [
   { label: "DOC", path: "/doc" },
 ];
 
+const navControlClassName =
+  "h-10 rounded-full border border-slate-200 bg-slate-100/70 text-sm transition-all duration-300";
+
+const walletButtonClassName = `${navControlClassName} inline-flex items-center gap-2.5 px-4 hover:border-slate-300 hover:bg-slate-100 active:scale-[0.98]`;
+
 const isActiveNavigationItem = (currentPathname: string, itemPath: string) => {
   if (itemPath === "/") {
     return currentPathname === "/";
@@ -41,7 +47,6 @@ export default function AppNavigation(props: AppNavigationProps) {
     activeWalletName,
     connectedAddress,
     isAccountMenuOpen,
-    isConnected,
     navSearchQuery,
     onConnect,
     onDisconnect,
@@ -55,15 +60,13 @@ export default function AppNavigation(props: AppNavigationProps) {
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white font-nav selection:bg-orange-100">
-      <div className="mx-auto flex h-[65px] max-w-[1408px] items-center justify-between px-6">
-        <div className="flex items-center gap-10">
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-xl font-black tracking-tighter text-slate-900"
-          >
+      <div className="mx-auto flex max-w-[1408px] flex-col gap-3 px-4 py-3 sm:px-6 lg:h-[65px] lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:py-0">
+        <div className="flex min-w-0 items-center justify-between gap-4 lg:justify-start lg:gap-10">
+          <Link to="/" className="shrink-0 text-xl font-black tracking-tighter text-slate-900">
             DeProof
           </Link>
-          <div className="hidden items-center gap-[40px] md:flex">
+
+          <div className="hidden items-center gap-6 xl:flex">
             {navigationItems.map((item) => (
               <Link
                 key={item.path}
@@ -78,22 +81,32 @@ export default function AppNavigation(props: AppNavigationProps) {
               </Link>
             ))}
           </div>
+
+          {isPassportRoute ? (
+            <button
+              onClick={() => setLocale(locale === "zh" ? "en" : "zh")}
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-[11px] font-black uppercase tracking-[0.18em] text-slate-600 transition-all hover:border-sky-200 hover:text-sky-600 xl:hidden"
+            >
+              <Languages size={14} />
+              {locale === "zh" ? "EN" : "CN"}
+            </button>
+          ) : null}
         </div>
 
-        <div className="flex items-center gap-5">
-          <div className="flex w-[88px] justify-start">
+        <div className="flex items-center justify-between gap-3 lg:justify-end lg:gap-5">
+          <div className="hidden w-[88px] justify-start xl:flex">
             {isPassportRoute ? (
               <button
                 onClick={() => setLocale(locale === "zh" ? "en" : "zh")}
                 className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-[11px] font-black uppercase tracking-[0.18em] text-slate-600 transition-all hover:border-sky-200 hover:text-sky-600"
               >
                 <Languages size={14} />
-                {locale === "zh" ? "EN" : "中文"}
+                {locale === "zh" ? "EN" : "CN"}
               </button>
             ) : null}
           </div>
 
-          <div className="group relative hidden lg:block">
+          <div className="group relative hidden min-[880px]:block">
             <Search
               size={16}
               className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-orange-500"
@@ -103,16 +116,13 @@ export default function AppNavigation(props: AppNavigationProps) {
               placeholder="Search hash..."
               value={navSearchQuery}
               onChange={(event) => onNavSearchQueryChange(event.target.value)}
-              className="w-48 rounded-full border border-transparent bg-slate-100/50 py-2 pl-10 pr-4 text-sm font-bold placeholder:text-slate-400 transition-all duration-300 focus:w-64 focus:border-orange-500/30 focus:bg-white focus:outline-none"
+              className={`${navControlClassName} w-48 border-transparent pl-10 pr-4 font-bold placeholder:text-slate-400 focus:w-64 focus:border-orange-500/30 focus:bg-white focus:outline-none`}
             />
           </div>
 
           {connectedAddress ? (
-            <div className="relative" ref={setAccountMenuRef}>
-              <button
-                onClick={onToggleAccountMenu}
-                className="group flex h-10 items-center gap-2.5 rounded-full border border-slate-200 bg-slate-100 px-4 transition-all hover:bg-slate-200 active:scale-[0.98]"
-              >
+            <div className="relative min-w-0" ref={setAccountMenuRef}>
+              <button onClick={onToggleAccountMenu} className={`${walletButtonClassName} group max-w-full`}>
                 {activeWalletIcon ? (
                   <img
                     src={activeWalletIcon}
@@ -122,7 +132,9 @@ export default function AppNavigation(props: AppNavigationProps) {
                 ) : (
                   <div className="h-4 w-4 shrink-0 rounded-full bg-gradient-to-tr from-orange-400 to-red-400" />
                 )}
-                <span className="connected-address">{truncateAddress(connectedAddress)}</span>
+                <span className="connected-address max-w-[8rem] truncate sm:max-w-none">
+                  {truncateAddress(connectedAddress)}
+                </span>
               </button>
 
               {isAccountMenuOpen && (
@@ -142,11 +154,29 @@ export default function AppNavigation(props: AppNavigationProps) {
           ) : (
             <button
               onClick={onConnect}
-              className="h-10 rounded-full border border-orange-200 bg-white px-6 text-sm font-black uppercase text-orange-600 shadow-sm shadow-orange-100 transition-all hover:border-orange-300 hover:bg-orange-50 active:scale-[0.98]"
+              className={`${walletButtonClassName} shrink-0 border-orange-200 bg-white px-4 text-xs font-black uppercase text-orange-600 shadow-sm shadow-orange-100 hover:border-orange-300 hover:bg-orange-50 sm:px-5`}
             >
               Connect Wallet
             </button>
           )}
+        </div>
+
+        <div className="-mx-4 overflow-x-auto px-4 pb-1 xl:hidden">
+          <div className="flex min-w-max items-center gap-2">
+            {navigationItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`rounded-full px-4 py-2 text-sm font-bold transition-all ${
+                  isActiveNavigationItem(pathname, item.path)
+                    ? "bg-slate-900 text-white"
+                    : "border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-800"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </nav>

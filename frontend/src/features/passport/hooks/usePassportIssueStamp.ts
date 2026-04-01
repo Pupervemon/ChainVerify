@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { decodeEventLog } from "viem";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
@@ -11,11 +12,17 @@ import {
 } from "../../../config/passport";
 import { usePassportLocale } from "../i18n";
 import { normalizePassportContractError } from "../utils/contractErrors";
+import {
+  getPassportIssueContextQueryKey,
+  PASSPORT_READ_CACHE_STALE_TIME,
+} from "../utils/passportReadCache";
 
 type UsePassportIssueStampOptions = {
   address?: string;
   ensureSupportedChain: () => Promise<boolean>;
   hasCorrectChain: boolean;
+  initialPassportId?: bigint | null;
+  initialStampTypeId?: bigint | null;
   isConnected: boolean;
 };
 
@@ -29,6 +36,12 @@ type StampTypePreview = {
 
 type AvailableStampType = StampTypePreview & {
   stampTypeId: bigint;
+};
+
+type IssuePermissionContext = {
+  canIssue: boolean;
+  latestEffectiveStampId: bigint | null;
+  stampType: StampTypePreview | null;
 };
 
 type IssueStampForm = {
@@ -60,17 +73,42 @@ export function usePassportIssueStamp(
   options: UsePassportIssueStampOptions,
 ): UsePassportIssueStampResult {
   const { t } = usePassportLocale();
-  const { address, ensureSupportedChain, hasCorrectChain, isConnected } = options;
+  const {
+    address,
+    ensureSupportedChain,
+    hasCorrectChain,
+    initialPassportId = null,
+    initialStampTypeId = null,
+    isConnected,
+  } = options;
+  const queryClient = useQueryClient();
   const publicClient = usePublicClient();
   const isConfigured = arePassportContractsConfigured();
+  const cachedPermissionContext =
+    address && initialPassportId !== null && initialStampTypeId !== null && isConfigured
+      ? queryClient.getQueryData<IssuePermissionContext>(
+          getPassportIssueContextQueryKey(address, initialPassportId, initialStampTypeId),
+        )
+      : undefined;
   const [availableStampTypes, setAvailableStampTypes] = useState<AvailableStampType[]>([]);
-  const [canIssue, setCanIssue] = useState(false);
+  const [canIssue, setCanIssue] = useState(cachedPermissionContext?.canIssue ?? false);
   const [error, setError] = useState("");
   const [isLoadingAvailableStampTypes, setIsLoadingAvailableStampTypes] = useState(false);
-  const [isLoadingPermission, setIsLoadingPermission] = useState(false);
+  const [isLoadingPermission, setIsLoadingPermission] = useState(
+    () =>
+      Boolean(address) &&
+      isConfigured &&
+      initialPassportId !== null &&
+      initialStampTypeId !== null &&
+      cachedPermissionContext === undefined,
+  );
   const [issuedStampId, setIssuedStampId] = useState<bigint | null>(null);
-  const [latestEffectiveStampId, setLatestEffectiveStampId] = useState<bigint | null>(null);
-  const [stampType, setStampType] = useState<StampTypePreview | null>(null);
+  const [latestEffectiveStampId, setLatestEffectiveStampId] = useState<bigint | null>(
+    cachedPermissionContext?.latestEffectiveStampId ?? null,
+  );
+  const [stampType, setStampType] = useState<StampTypePreview | null>(
+    cachedPermissionContext?.stampType ?? null,
+  );
   const [statusMessage, setStatusMessage] = useState("");
 
   const { writeContractAsync, data: txHash, isPending } = useWriteContract();
@@ -150,41 +188,69 @@ export function usePassportIssueStamp(
 
   const loadPermission = useCallback(
     async (passportId: bigint, stampTypeId: bigint) => {
-      if (!publicClient || !isConfigured || !address) {
+      if (!isConfigured || !address) {
         setCanIssue(false);
         setStampType(null);
         setLatestEffectiveStampId(null);
+        setIsLoadingPermission(false);
         return;
       }
 
-      setIsLoadingPermission(true);
+      if (!publicClient) {
+        return;
+      }
+
+      const queryKey = getPassportIssueContextQueryKey(address, passportId, stampTypeId);
+      const cachedContext = queryClient.getQueryData<IssuePermissionContext>(queryKey);
+
+      if (cachedContext !== undefined) {
+        setCanIssue(cachedContext.canIssue);
+        setStampType(cachedContext.stampType);
+        setLatestEffectiveStampId(cachedContext.latestEffectiveStampId);
+        setIsLoadingPermission(false);
+      } else {
+        setIsLoadingPermission(true);
+      }
+
       setError("");
 
       try {
-        const [allowed, typeRecord, latestId] = await Promise.all([
-          publicClient.readContract({
-            address: PASSPORT_AUTHORITY_ADDRESS as `0x${string}`,
-            abi: PASSPORT_AUTHORITY_ABI,
-            functionName: "canIssue",
-            args: [address as `0x${string}`, stampTypeId, passportId],
-          }) as Promise<boolean>,
-          publicClient.readContract({
-            address: CHRONICLE_STAMP_ADDRESS as `0x${string}`,
-            abi: CHRONICLE_STAMP_ABI,
-            functionName: "stampTypeOf",
-            args: [stampTypeId],
-          }) as Promise<StampTypePreview>,
-          publicClient.readContract({
-            address: CHRONICLE_STAMP_ADDRESS as `0x${string}`,
-            abi: CHRONICLE_STAMP_ABI,
-            functionName: "latestEffectiveStampId",
-            args: [passportId, stampTypeId],
-          }) as Promise<bigint>,
-        ]);
+        const context = await queryClient.fetchQuery({
+          queryKey,
+          queryFn: async () => {
+            const [allowed, typeRecord, latestId] = await Promise.all([
+              publicClient.readContract({
+                address: PASSPORT_AUTHORITY_ADDRESS as `0x${string}`,
+                abi: PASSPORT_AUTHORITY_ABI,
+                functionName: "canIssue",
+                args: [address as `0x${string}`, stampTypeId, passportId],
+              }) as Promise<boolean>,
+              publicClient.readContract({
+                address: CHRONICLE_STAMP_ADDRESS as `0x${string}`,
+                abi: CHRONICLE_STAMP_ABI,
+                functionName: "stampTypeOf",
+                args: [stampTypeId],
+              }) as Promise<StampTypePreview>,
+              publicClient.readContract({
+                address: CHRONICLE_STAMP_ADDRESS as `0x${string}`,
+                abi: CHRONICLE_STAMP_ABI,
+                functionName: "latestEffectiveStampId",
+                args: [passportId, stampTypeId],
+              }) as Promise<bigint>,
+            ]);
 
-        setCanIssue(allowed);
-        setStampType(typeRecord);
-        setLatestEffectiveStampId(latestId === 0n ? null : latestId);
+            return {
+              canIssue: allowed,
+              latestEffectiveStampId: latestId === 0n ? null : latestId,
+              stampType: typeRecord,
+            };
+          },
+          staleTime: PASSPORT_READ_CACHE_STALE_TIME,
+        });
+
+        setCanIssue(context.canIssue);
+        setStampType(context.stampType);
+        setLatestEffectiveStampId(context.latestEffectiveStampId);
       } catch (loadError) {
         setCanIssue(false);
         setStampType(null);
@@ -201,8 +267,27 @@ export function usePassportIssueStamp(
         setIsLoadingPermission(false);
       }
     },
-    [address, isConfigured, publicClient, t],
+    [address, isConfigured, publicClient, queryClient, t],
   );
+
+  useEffect(() => {
+    if (!isConfigured || !address || initialPassportId === null || initialStampTypeId === null) {
+      setCanIssue(false);
+      setStampType(null);
+      setLatestEffectiveStampId(null);
+      setIsLoadingPermission(false);
+      return;
+    }
+
+    const cachedContext = queryClient.getQueryData<IssuePermissionContext>(
+      getPassportIssueContextQueryKey(address, initialPassportId, initialStampTypeId),
+    );
+
+    setCanIssue(cachedContext?.canIssue ?? false);
+    setStampType(cachedContext?.stampType ?? null);
+    setLatestEffectiveStampId(cachedContext?.latestEffectiveStampId ?? null);
+    setIsLoadingPermission(cachedContext === undefined);
+  }, [address, initialPassportId, initialStampTypeId, isConfigured, queryClient]);
 
   useEffect(() => {
     void loadAvailableStampTypes();

@@ -22,6 +22,15 @@ type UseWalletSessionOptions = {
   onStatusChange?: (message: string) => void;
 };
 
+type WalletIconSource = string | (() => Promise<string>);
+
+type WalletConnectorWithDetails = {
+  icon?: string;
+  rkDetails?: {
+    iconUrl?: WalletIconSource;
+  };
+};
+
 export function useWalletSession(options: UseWalletSessionOptions = {}) {
   const { onStatusChange } = options;
   const { isConnected, address, connector: activeConnector } = useAccount();
@@ -41,6 +50,7 @@ export function useWalletSession(options: UseWalletSessionOptions = {}) {
     return window.localStorage.getItem(LAST_WALLET_ADDRESS_KEY) || "";
   });
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [activeWalletIcon, setActiveWalletIcon] = useState("");
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const hasPromptedChainSwitchRef = useRef(false);
 
@@ -74,6 +84,47 @@ export function useWalletSession(options: UseWalletSessionOptions = {}) {
     setDisplayAddress(address);
     window.localStorage.setItem(LAST_WALLET_ADDRESS_KEY, address);
   }, [address]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const resolveActiveWalletIcon = async () => {
+      if (!isConnected || !activeConnector) {
+        setActiveWalletIcon("");
+        return;
+      }
+
+      const connectorDetails = activeConnector as typeof activeConnector & WalletConnectorWithDetails;
+      const iconSource = connectorDetails.rkDetails?.iconUrl ?? connectorDetails.icon;
+
+      if (!iconSource) {
+        setActiveWalletIcon("");
+        return;
+      }
+
+      if (typeof iconSource === "string") {
+        setActiveWalletIcon(iconSource);
+        return;
+      }
+
+      try {
+        const resolvedIcon = await iconSource();
+        if (!isCancelled) {
+          setActiveWalletIcon(resolvedIcon);
+        }
+      } catch {
+        if (!isCancelled) {
+          setActiveWalletIcon("");
+        }
+      }
+    };
+
+    void resolveActiveWalletIcon();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeConnector, isConnected]);
 
   const truncateAddress = useCallback(
     (value: string) => `${value.slice(0, 6)}...${value.slice(-4)}`,
@@ -167,7 +218,7 @@ export function useWalletSession(options: UseWalletSessionOptions = {}) {
   });
 
   return {
-    activeWalletIcon: "",
+    activeWalletIcon,
     activeWalletName: activeConnector?.name || "Wallet",
     accountMenuRef,
     blockNumber: blockNumber?.toString() || "",

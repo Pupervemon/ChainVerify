@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { decodeEventLog } from "viem";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
@@ -10,6 +11,10 @@ import {
   PASSPORT_AUTHORITY_ADDRESS,
 } from "../../../config/passport";
 import { usePassportLocale } from "../i18n";
+import {
+  getPassportRevokeContextQueryKey,
+  PASSPORT_READ_CACHE_STALE_TIME,
+} from "../utils/passportReadCache";
 
 type StampRecordPreview = {
   issuer: string;
@@ -27,7 +32,13 @@ type UsePassportRevokeStampOptions = {
   address?: string;
   ensureSupportedChain: () => Promise<boolean>;
   hasCorrectChain: boolean;
+  initialStampId?: bigint | null;
   isConnected: boolean;
+};
+
+type RevokeContext = {
+  canRevoke: boolean;
+  stampRecord: StampRecordPreview | null;
 };
 
 type UsePassportRevokeStampResult = {
@@ -47,14 +58,31 @@ export function usePassportRevokeStamp(
   options: UsePassportRevokeStampOptions,
 ): UsePassportRevokeStampResult {
   const { t } = usePassportLocale();
-  const { address, ensureSupportedChain, hasCorrectChain, isConnected } = options;
+  const {
+    address,
+    ensureSupportedChain,
+    hasCorrectChain,
+    initialStampId = null,
+    isConnected,
+  } = options;
+  const queryClient = useQueryClient();
   const publicClient = usePublicClient();
   const isConfigured = arePassportContractsConfigured();
-  const [canRevoke, setCanRevoke] = useState(false);
+  const cachedContext =
+    address && initialStampId !== null && isConfigured
+      ? queryClient.getQueryData<RevokeContext>(
+          getPassportRevokeContextQueryKey(address, initialStampId),
+        )
+      : undefined;
+  const [canRevoke, setCanRevoke] = useState(cachedContext?.canRevoke ?? false);
   const [error, setError] = useState("");
-  const [isLoadingContext, setIsLoadingContext] = useState(false);
+  const [isLoadingContext, setIsLoadingContext] = useState(
+    () => Boolean(address) && isConfigured && initialStampId !== null && cachedContext === undefined,
+  );
   const [revokedStampId, setRevokedStampId] = useState<bigint | null>(null);
-  const [stampRecord, setStampRecord] = useState<StampRecordPreview | null>(null);
+  const [stampRecord, setStampRecord] = useState<StampRecordPreview | null>(
+    cachedContext?.stampRecord ?? null,
+  );
   const [statusMessage, setStatusMessage] = useState("");
 
   const { writeContractAsync, data: txHash, isPending } = useWriteContract();
@@ -70,33 +98,59 @@ export function usePassportRevokeStamp(
 
   const loadContext = useCallback(
     async (stampId: bigint) => {
-      if (!publicClient || !isConfigured || !address) {
+      if (!isConfigured || !address) {
         setCanRevoke(false);
         setStampRecord(null);
+        setIsLoadingContext(false);
         return;
       }
 
-      setIsLoadingContext(true);
+      if (!publicClient) {
+        return;
+      }
+
+      const queryKey = getPassportRevokeContextQueryKey(address, stampId);
+      const cachedStampContext = queryClient.getQueryData<RevokeContext>(queryKey);
+
+      if (cachedStampContext !== undefined) {
+        setCanRevoke(cachedStampContext.canRevoke);
+        setStampRecord(cachedStampContext.stampRecord);
+        setIsLoadingContext(false);
+      } else {
+        setIsLoadingContext(true);
+      }
+
       setError("");
 
       try {
-        const [allowed, record] = await Promise.all([
-          publicClient.readContract({
-            address: PASSPORT_AUTHORITY_ADDRESS as `0x${string}`,
-            abi: PASSPORT_AUTHORITY_ABI,
-            functionName: "canRevoke",
-            args: [address as `0x${string}`, stampId],
-          }) as Promise<boolean>,
-          publicClient.readContract({
-            address: CHRONICLE_STAMP_ADDRESS as `0x${string}`,
-            abi: CHRONICLE_STAMP_ABI,
-            functionName: "stampRecordOf",
-            args: [stampId],
-          }) as Promise<StampRecordPreview>,
-        ]);
+        const context = await queryClient.fetchQuery({
+          queryKey,
+          queryFn: async () => {
+            const [allowed, record] = await Promise.all([
+              publicClient.readContract({
+                address: PASSPORT_AUTHORITY_ADDRESS as `0x${string}`,
+                abi: PASSPORT_AUTHORITY_ABI,
+                functionName: "canRevoke",
+                args: [address as `0x${string}`, stampId],
+              }) as Promise<boolean>,
+              publicClient.readContract({
+                address: CHRONICLE_STAMP_ADDRESS as `0x${string}`,
+                abi: CHRONICLE_STAMP_ABI,
+                functionName: "stampRecordOf",
+                args: [stampId],
+              }) as Promise<StampRecordPreview>,
+            ]);
 
-        setCanRevoke(allowed);
-        setStampRecord(record);
+            return {
+              canRevoke: allowed,
+              stampRecord: record,
+            };
+          },
+          staleTime: PASSPORT_READ_CACHE_STALE_TIME,
+        });
+
+        setCanRevoke(context.canRevoke);
+        setStampRecord(context.stampRecord);
       } catch (loadError) {
         setCanRevoke(false);
         setStampRecord(null);
@@ -109,8 +163,25 @@ export function usePassportRevokeStamp(
         setIsLoadingContext(false);
       }
     },
-    [address, isConfigured, publicClient],
+    [address, isConfigured, publicClient, queryClient, t],
   );
+
+  useEffect(() => {
+    if (!isConfigured || !address || initialStampId === null) {
+      setCanRevoke(false);
+      setStampRecord(null);
+      setIsLoadingContext(false);
+      return;
+    }
+
+    const cachedStampContext = queryClient.getQueryData<RevokeContext>(
+      getPassportRevokeContextQueryKey(address, initialStampId),
+    );
+
+    setCanRevoke(cachedStampContext?.canRevoke ?? false);
+    setStampRecord(cachedStampContext?.stampRecord ?? null);
+    setIsLoadingContext(cachedStampContext === undefined);
+  }, [address, initialStampId, isConfigured, queryClient]);
 
   const submitRevokeStamp = useCallback(
     async (stampId: bigint, reasonCID: string) => {

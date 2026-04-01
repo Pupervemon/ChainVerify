@@ -11,6 +11,9 @@ const HomePage = lazy(() => import("./features/proof/pages/HomePage"));
 const DashboardPage = lazy(() => import("./features/proof/pages/DashboardPage"));
 const PassportDashboardPage = lazy(() => import("./features/passport/pages/PassportDashboardPage"));
 const PassportWorkbenchPage = lazy(() => import("./features/passport/pages/PassportWorkbenchPage"));
+const PassportTrustedFactoryPage = lazy(
+  () => import("./features/passport/pages/PassportTrustedFactoryPage"),
+);
 const PassportAdminPage = lazy(() => import("./features/passport/pages/PassportAdminPage"));
 const PassportCreatePage = lazy(() => import("./features/passport/pages/PassportCreatePage"));
 const PassportIssuerPolicyPage = lazy(
@@ -209,6 +212,17 @@ function App() {
           />
           <Route path="/passport" element={<PassportDashboardPage />} />
           <Route path="/passport/workbench" element={<PassportWorkbenchPage />} />
+          <Route
+            path="/passport/factories"
+            element={
+              <PassportTrustedFactoryPage
+                connectedAddress={connectedAddress}
+                ensureSupportedChain={ensureSupportedChain}
+                hasCorrectChain={hasCorrectChain}
+                isConnected={isConnected}
+              />
+            }
+          />
           <Route
             path="/passport/admin"
             element={
