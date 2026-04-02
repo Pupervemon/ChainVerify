@@ -50,6 +50,12 @@ type PassportNavItem = {
   path: string;
 };
 
+type CollapsedTooltipState = {
+  label: string;
+  left: number;
+  top: number;
+};
+
 export default function PassportShell(props: PassportShellProps) {
   const { children, currentKey } = props;
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -66,6 +72,7 @@ export default function PassportShell(props: PassportShellProps) {
 
     return window.innerWidth <= 1279;
   });
+  const [collapsedTooltip, setCollapsedTooltip] = useState<CollapsedTooltipState | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const sections: Array<{ items: PassportNavItem[]; title: string }> = [
@@ -182,6 +189,23 @@ export default function PassportShell(props: PassportShellProps) {
   const filteredItems = filteredSections.flatMap((section) => section.items);
   const showCollapsedSidebar = isCollapsed && !isCompactViewport;
 
+  const openCollapsedTooltip = (label: string, element: HTMLElement) => {
+    if (!showCollapsedSidebar) {
+      return;
+    }
+
+    const rect = element.getBoundingClientRect();
+    setCollapsedTooltip({
+      label,
+      left: rect.right + 10,
+      top: rect.top + rect.height / 2,
+    });
+  };
+
+  const closeCollapsedTooltip = () => {
+    setCollapsedTooltip(null);
+  };
+
   useEffect(() => {
     window.localStorage.setItem(
       PASSPORT_SIDEBAR_COLLAPSED_STORAGE_KEY,
@@ -203,6 +227,30 @@ export default function PassportShell(props: PassportShellProps) {
 
     return () => window.removeEventListener("resize", syncViewportState);
   }, []);
+
+  useEffect(() => {
+    if (!showCollapsedSidebar) {
+      setCollapsedTooltip(null);
+    }
+  }, [showCollapsedSidebar]);
+
+  useEffect(() => {
+    if (!collapsedTooltip) {
+      return undefined;
+    }
+
+    const dismissTooltip = () => {
+      setCollapsedTooltip(null);
+    };
+
+    window.addEventListener("resize", dismissTooltip);
+    window.addEventListener("scroll", dismissTooltip, true);
+
+    return () => {
+      window.removeEventListener("resize", dismissTooltip);
+      window.removeEventListener("scroll", dismissTooltip, true);
+    };
+  }, [collapsedTooltip]);
 
   return (
     <main className={`passport-layout ${showCollapsedSidebar ? "is-collapsed" : ""}`}>
@@ -232,29 +280,18 @@ export default function PassportShell(props: PassportShellProps) {
                 />
               </label>
             ) : (
-              <div className="group relative">
+              <div className="relative w-[38px]">
                 <button
                   type="button"
                   aria-label="Search"
                   className="flex h-[38px] w-[38px] items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-[#374151] transition-all hover:bg-[#EFF6FF] hover:text-[#111827]"
+                  onMouseEnter={(event) => openCollapsedTooltip("Search", event.currentTarget)}
+                  onMouseLeave={closeCollapsedTooltip}
+                  onFocus={(event) => openCollapsedTooltip("Search", event.currentTarget)}
+                  onBlur={closeCollapsedTooltip}
                 >
                   <Search size={15} strokeWidth={2.25} />
                 </button>
-                <div
-                  className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-20 -translate-y-1/2 whitespace-nowrap rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-                  style={{
-                    fontFamily:
-                      'Inter, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
-                    color: "#111827",
-                    fontFeatureSettings: "normal",
-                    fontSize: "13px",
-                    fontVariationSettings: "normal",
-                    fontWeight: 500,
-                    letterSpacing: "-0.005em",
-                  }}
-                >
-                  Search
-                </div>
               </div>
             )}
 
@@ -308,7 +345,7 @@ export default function PassportShell(props: PassportShellProps) {
                     const isActive = currentKey === item.key;
 
                     return (
-                      <div key={item.key} className="group relative">
+                      <div key={item.key} className="relative">
                         <Link
                           to={item.path}
                           className={`flex h-[38px] w-full items-center text-left transition-all ${
@@ -316,6 +353,10 @@ export default function PassportShell(props: PassportShellProps) {
                               ? "bg-[#EFF6FF] text-slate-900"
                               : "text-[#374151] hover:bg-[#EFF6FF] hover:text-[#111827]"
                           } ${showCollapsedSidebar ? "justify-center rounded-lg px-0" : "rounded-xl px-3"}`}
+                          onMouseEnter={(event) => openCollapsedTooltip(item.label, event.currentTarget)}
+                          onMouseLeave={closeCollapsedTooltip}
+                          onFocus={(event) => openCollapsedTooltip(item.label, event.currentTarget)}
+                          onBlur={closeCollapsedTooltip}
                         >
                           <span
                             className={`inline-flex h-6 w-6 shrink-0 items-center justify-center ${
@@ -344,23 +385,6 @@ export default function PassportShell(props: PassportShellProps) {
                             </span>
                           ) : null}
                         </Link>
-                        {showCollapsedSidebar ? (
-                          <div
-                            className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-20 -translate-y-1/2 whitespace-nowrap rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-                            style={{
-                              fontFamily:
-                                'Inter, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
-                              color: "#111827",
-                              fontFeatureSettings: "normal",
-                              fontSize: "13px",
-                              fontVariationSettings: "normal",
-                              fontWeight: 500,
-                              letterSpacing: "-0.005em",
-                            }}
-                          >
-                            {item.label}
-                          </div>
-                        ) : null}
                       </div>
                     );
                   })}
@@ -374,6 +398,10 @@ export default function PassportShell(props: PassportShellProps) {
             <button
               type="button"
               onClick={() => setIsCollapsed((value) => !value)}
+              onMouseEnter={(event) => openCollapsedTooltip("Expand", event.currentTarget)}
+              onMouseLeave={closeCollapsedTooltip}
+              onFocus={(event) => openCollapsedTooltip("Expand", event.currentTarget)}
+              onBlur={closeCollapsedTooltip}
               className={`passport-sidebar__toggle mt-6 flex h-[38px] items-center rounded-xl border border-[#E5E7EB] text-[#111827] transition-all hover:bg-[#EFF6FF] ${
                 showCollapsedSidebar ? "w-[38px] justify-center" : "w-full justify-between px-3"
               }`}
@@ -399,7 +427,30 @@ export default function PassportShell(props: PassportShellProps) {
         </div>
       </aside>
 
+      {showCollapsedSidebar && collapsedTooltip ? (
+        <div
+          className="pointer-events-none fixed z-[60] whitespace-nowrap rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 shadow-[0_12px_30px_-18px_rgba(15,23,42,0.5)]"
+          style={{
+            left: collapsedTooltip.left,
+            top: collapsedTooltip.top,
+            transform: "translateY(-50%)",
+            fontFamily:
+              'Inter, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+            color: "#111827",
+            fontFeatureSettings: "normal",
+            fontSize: "13px",
+            fontVariationSettings: "normal",
+            fontWeight: 500,
+            letterSpacing: "-0.005em",
+          }}
+        >
+          {collapsedTooltip.label}
+        </div>
+      ) : null}
+
       <div className="passport-main">{children}</div>
     </main>
   );
 }
+
+

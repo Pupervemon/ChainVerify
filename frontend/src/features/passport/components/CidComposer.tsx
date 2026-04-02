@@ -22,6 +22,7 @@ type CidComposerProps = {
   defaultText?: string;
   description?: string;
   fieldKey: string;
+  framed?: boolean;
   formFields?: CidComposerFormField[];
   suggestedFileName: string;
   value: string;
@@ -33,35 +34,30 @@ const EMPTY_FORM_FIELDS: CidComposerFormField[] = [];
 const accentStyles: Record<
   Accent,
   {
-    badge: string;
+    activeButton: string;
     button: string;
-    panel: string;
-    ring: string;
+    focus: string;
   }
 > = {
   emerald: {
-    badge: "bg-emerald-100 text-emerald-700",
-    button: "hover:border-emerald-200 hover:text-emerald-700",
-    panel: "border-emerald-100 bg-emerald-50",
-    ring: "focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100",
+    activeButton: "border-emerald-300 bg-emerald-50 text-emerald-700",
+    button: "hover:border-emerald-300/60 hover:text-emerald-700",
+    focus: "focus:border-emerald-400 focus:shadow-[inset_0_0_0_1px_#34d399]",
   },
   orange: {
-    badge: "bg-orange-100 text-orange-700",
-    button: "hover:border-orange-200 hover:text-orange-700",
-    panel: "border-orange-100 bg-orange-50",
-    ring: "focus:border-orange-300 focus:ring-4 focus:ring-orange-100",
+    activeButton: "border-orange-300 bg-orange-50 text-orange-700",
+    button: "hover:border-orange-300/60 hover:text-orange-700",
+    focus: "focus:border-orange-400 focus:shadow-[inset_0_0_0_1px_#fb923c]",
   },
   rose: {
-    badge: "bg-rose-100 text-rose-700",
-    button: "hover:border-rose-200 hover:text-rose-700",
-    panel: "border-rose-100 bg-rose-50",
-    ring: "focus:border-rose-300 focus:ring-4 focus:ring-rose-100",
+    activeButton: "border-rose-300 bg-rose-50 text-rose-700",
+    button: "hover:border-rose-300/60 hover:text-rose-700",
+    focus: "focus:border-rose-400 focus:shadow-[inset_0_0_0_1px_#fb7185]",
   },
   sky: {
-    badge: "bg-sky-100 text-sky-700",
-    button: "hover:border-sky-200 hover:text-sky-700",
-    panel: "border-sky-100 bg-sky-50",
-    ring: "focus:border-sky-300 focus:ring-4 focus:ring-sky-100",
+    activeButton: "border-sky-300 bg-sky-50 text-sky-700",
+    button: "hover:border-sky-300/60 hover:text-sky-700",
+    focus: "focus:border-sky-400 focus:shadow-[inset_0_0_0_1px_#60a5fa]",
   },
 };
 
@@ -131,6 +127,7 @@ export default function CidComposer(props: CidComposerProps) {
     defaultText = "{\n  \n}",
     description,
     fieldKey,
+    framed = true,
     formFields = EMPTY_FORM_FIELDS,
     suggestedFileName,
     value,
@@ -139,6 +136,8 @@ export default function CidComposer(props: CidComposerProps) {
   const { t } = usePassportLocale();
   const styles = accentStyles[accent];
   const hasForm = formFields.length > 0;
+  const fieldControlClassName = `mt-3 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none transition-all ${styles.focus}`;
+  const frameClassName = framed ? "panel-soft h-auto min-h-0 justify-start p-5" : "";
 
   const [mode, setMode] = useState<Mode>(hasForm ? "form" : "json");
   const [textContent, setTextContent] = useState(defaultText);
@@ -280,31 +279,23 @@ export default function CidComposer(props: CidComposerProps) {
   };
 
   return (
-    <div className={`mt-4 rounded-[1.75rem] border px-5 py-5 ${styles.panel}`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-2">
-          <div className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${styles.badge}`}>
-            {t("页内生成 CID", "Generate CID In Page")}
-          </div>
-          <p className="text-sm font-semibold leading-relaxed text-slate-800">
-            {description ||
-              t(
-                "默认用表单组织内容，必要时再切换到 JSON 或文件上传模式。",
-                "Use the structured form by default, and switch to JSON or file upload only when needed.",
-              )}
-          </p>
+    <div className={frameClassName}>
+      {description ? (
+        <div className="border-b border-slate-200 pb-5">
+          <p className="meta-label">{t("CID Composer", "CID Composer")}</p>
+          <p className="mt-3 max-w-3xl text-sm font-medium text-slate-600">{description}</p>
         </div>
-      </div>
+      ) : null}
 
-      <div className="mt-5 flex flex-wrap gap-3">
+      <div className={`${description ? "mt-5 " : ""}flex flex-wrap gap-3`}>
         {hasForm ? (
           <button
             type="button"
             onClick={() => setMode("form")}
-            className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.18em] transition-all ${
+            className={`inline-flex h-10 items-center justify-center rounded-xl border px-4 text-sm font-semibold transition-all ${
               mode === "form"
-                ? "border border-sky-200 bg-sky-50 text-sky-700"
-                : `border border-slate-200 bg-white text-slate-700 ${styles.button}`
+                ? styles.activeButton
+                : `border-slate-200 bg-white text-slate-700 ${styles.button}`
             }`}
           >
             {t("表单填写", "Form")}
@@ -313,10 +304,10 @@ export default function CidComposer(props: CidComposerProps) {
         <button
           type="button"
           onClick={() => setMode("json")}
-          className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.18em] transition-all ${
+          className={`inline-flex h-10 items-center justify-center rounded-xl border px-4 text-sm font-semibold transition-all ${
             mode === "json"
-              ? "border border-sky-200 bg-sky-50 text-sky-700"
-              : `border border-slate-200 bg-white text-slate-700 ${styles.button}`
+              ? styles.activeButton
+              : `border-slate-200 bg-white text-slate-700 ${styles.button}`
           }`}
         >
           JSON
@@ -324,10 +315,10 @@ export default function CidComposer(props: CidComposerProps) {
         <button
           type="button"
           onClick={() => setMode("file")}
-          className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.18em] transition-all ${
+          className={`inline-flex h-10 items-center justify-center rounded-xl border px-4 text-sm font-semibold transition-all ${
             mode === "file"
-              ? "border border-sky-200 bg-sky-50 text-sky-700"
-              : `border border-slate-200 bg-white text-slate-700 ${styles.button}`
+              ? styles.activeButton
+              : `border-slate-200 bg-white text-slate-700 ${styles.button}`
           }`}
         >
           {t("上传文件", "Upload File")}
@@ -335,28 +326,25 @@ export default function CidComposer(props: CidComposerProps) {
       </div>
 
       {mode === "form" && hasForm ? (
-        <div className="mt-5 grid gap-4">
+        <div className="mt-6 grid gap-4">
           <div className="grid gap-4 md:grid-cols-2">
             {formFields.map((field) => {
               const fieldType = field.type ?? "text";
               const isWide = fieldType !== "text";
-              const commonClassName = `mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all ${styles.ring}`;
 
               return (
                 <div
                   key={field.key}
-                  className={`rounded-2xl border border-white/70 bg-white/70 px-4 py-4 ${isWide ? "md:col-span-2" : ""}`}
+                  className={`panel-soft h-auto min-h-0 justify-start p-5 ${isWide ? "md:col-span-2" : ""}`}
                 >
-                  <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-                    {field.label}
-                  </label>
+                  <label className="meta-label">{field.label}</label>
                   {fieldType === "textarea" || fieldType === "list" ? (
                     <textarea
                       value={formState[field.key] ?? ""}
                       onChange={(event) => handleFormValueChange(field.key, event.target.value)}
                       placeholder={field.placeholder}
                       rows={fieldType === "list" ? 4 : 5}
-                      className={`${commonClassName} resize-y`}
+                      className={`${fieldControlClassName} resize-y`}
                     />
                   ) : (
                     <input
@@ -364,7 +352,7 @@ export default function CidComposer(props: CidComposerProps) {
                       value={formState[field.key] ?? ""}
                       onChange={(event) => handleFormValueChange(field.key, event.target.value)}
                       placeholder={field.placeholder}
-                      className={commonClassName}
+                      className={`passport-dashboard-query__input mt-3 h-12 ${styles.focus}`}
                     />
                   )}
                   {field.helper ? (
@@ -376,100 +364,113 @@ export default function CidComposer(props: CidComposerProps) {
           </div>
 
           <div className="grid gap-4 md:grid-cols-[1fr_220px]">
-            <input
-              type="text"
-              value={fileName}
-              onChange={(event) => setFileName(event.target.value)}
-              placeholder={suggestedFileName}
-              className={`rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all ${styles.ring}`}
-            />
-            <select
-              value={mimeType}
-              onChange={(event) => setMimeType(event.target.value)}
-              className={`rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all ${styles.ring}`}
-            >
-              <option value="application/json">application/json</option>
-              <option value="text/plain">text/plain</option>
-              <option value="text/markdown">text/markdown</option>
-            </select>
+            <div className="panel-soft h-auto min-h-0 justify-start p-5">
+              <p className="meta-label">{t("文件名", "File Name")}</p>
+              <input
+                type="text"
+                value={fileName}
+                onChange={(event) => setFileName(event.target.value)}
+                placeholder={suggestedFileName}
+                className={`passport-dashboard-query__input mt-3 h-12 ${styles.focus}`}
+              />
+            </div>
+            <div className="panel-soft h-auto min-h-0 justify-start p-5">
+              <p className="meta-label">{t("内容类型", "Content Type")}</p>
+              <select
+                value={mimeType}
+                onChange={(event) => setMimeType(event.target.value)}
+                className={`passport-dashboard-query__input mt-3 h-12 ${styles.focus}`}
+              >
+                <option value="application/json">application/json</option>
+                <option value="text/plain">text/plain</option>
+                <option value="text/markdown">text/markdown</option>
+              </select>
+            </div>
           </div>
         </div>
       ) : null}
 
       {mode === "json" ? (
-        <div className="mt-5 grid gap-4">
+        <div className="mt-6 grid gap-4">
           <div className="grid gap-4 md:grid-cols-[1fr_220px]">
-            <input
-              type="text"
-              value={fileName}
-              onChange={(event) => setFileName(event.target.value)}
-              placeholder={suggestedFileName}
-              className={`rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all ${styles.ring}`}
-            />
-            <select
-              value={mimeType}
-              onChange={(event) => setMimeType(event.target.value)}
-              className={`rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all ${styles.ring}`}
-            >
-              <option value="application/json">application/json</option>
-              <option value="text/plain">text/plain</option>
-              <option value="text/markdown">text/markdown</option>
-            </select>
+            <div className="panel-soft h-auto min-h-0 justify-start p-5">
+              <p className="meta-label">{t("文件名", "File Name")}</p>
+              <input
+                type="text"
+                value={fileName}
+                onChange={(event) => setFileName(event.target.value)}
+                placeholder={suggestedFileName}
+                className={`passport-dashboard-query__input mt-3 h-12 ${styles.focus}`}
+              />
+            </div>
+            <div className="panel-soft h-auto min-h-0 justify-start p-5">
+              <p className="meta-label">{t("内容类型", "Content Type")}</p>
+              <select
+                value={mimeType}
+                onChange={(event) => setMimeType(event.target.value)}
+                className={`passport-dashboard-query__input mt-3 h-12 ${styles.focus}`}
+              >
+                <option value="application/json">application/json</option>
+                <option value="text/plain">text/plain</option>
+                <option value="text/markdown">text/markdown</option>
+              </select>
+            </div>
           </div>
-          <textarea
-            value={textContent}
-            onChange={(event) => handleJsonValueChange(event.target.value)}
-            rows={12}
-            className={`w-full resize-y rounded-2xl border border-slate-200 bg-white px-5 py-4 font-mono text-sm text-slate-900 outline-none transition-all ${styles.ring}`}
-          />
+          <div className="panel-soft h-auto min-h-0 justify-start p-5">
+            <p className="meta-label">JSON</p>
+            <textarea
+              value={textContent}
+              onChange={(event) => handleJsonValueChange(event.target.value)}
+              rows={12}
+              className={`mt-3 w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 font-mono text-sm text-slate-900 outline-none transition-all ${styles.focus}`}
+            />
+          </div>
           {jsonValidationError ? (
             <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-4 text-sm font-semibold text-amber-700">
               {jsonValidationError}
             </div>
-          ) : (
-            <div className="rounded-2xl border border-slate-100 bg-white/80 px-4 py-4 text-sm font-medium text-slate-500">
-              {t(
-                "适合高级用户或直接粘贴现成 metadata。JSON 合法时会同步回表单。",
-                "For advanced users or prebuilt metadata. Valid JSON is synced back into the form.",
-              )}
-            </div>
-          )}
+          ) : null}
         </div>
       ) : null}
 
       {mode === "file" ? (
-        <div className="mt-5 grid gap-4">
-          <label className={`flex min-h-[132px] cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-6 text-center transition-all ${styles.button}`}>
-            <input
-              type="file"
-              className="hidden"
-              onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
-            />
-            <div className="space-y-2">
-              <div className="flex justify-center text-slate-500">
-                <FileUp size={20} />
+        <div className="mt-6 grid gap-4">
+          <div className="panel-soft h-auto min-h-0 justify-start p-5">
+            <p className="meta-label">{t("文件上传", "File Upload")}</p>
+            <label
+              className={`mt-3 flex min-h-[160px] cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-5 py-6 text-center transition-all ${styles.button}`}
+            >
+              <input
+                type="file"
+                className="hidden"
+                onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
+              />
+              <div className="space-y-2">
+                <div className="flex justify-center text-slate-500">
+                  <FileUp size={20} />
+                </div>
+                <p className="text-sm font-semibold text-slate-700">
+                  {selectedFile
+                    ? selectedFile.name
+                    : t("点击选择文件", "Click to choose a file")}
+                </p>
+                {selectedFile ? (
+                  <p className="text-xs font-medium text-slate-500">
+                    {`${(selectedFile.size / 1024).toFixed(2)} KB`}
+                  </p>
+                ) : null}
               </div>
-              <p className="text-sm font-semibold text-slate-700">
-                {selectedFile
-                  ? selectedFile.name
-                  : t("点击选择一个文件并直接上传到 IPFS", "Click to choose a file and upload it to IPFS")}
-              </p>
-              <p className="text-xs font-medium text-slate-500">
-                {selectedFile
-                  ? `${(selectedFile.size / 1024).toFixed(2)} KB`
-                  : t("适合图片、PDF、现成 JSON 或其他附件。", "Best for images, PDFs, ready-made JSON, or other attachments.")}
-              </p>
-            </div>
-          </label>
+            </label>
+          </div>
         </div>
       ) : null}
 
-      <div className="mt-5 flex flex-wrap gap-3">
+      <div className="passport-dashboard-primary__actions mt-6">
         <button
           type="button"
           onClick={() => void handleUpload()}
           disabled={isUploading || Boolean(jsonValidationError && mode !== "file")}
-          className="inline-flex items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-sky-700 transition-all hover:bg-sky-100 disabled:opacity-50"
+          className="passport-action-button passport-action-button--primary disabled:opacity-50"
         >
           {isUploading ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
           {isUploading ? t("生成中...", "Generating...") : t("生成 CID", "Generate CID")}
@@ -477,48 +478,46 @@ export default function CidComposer(props: CidComposerProps) {
         <button
           type="button"
           onClick={() => onChange("")}
-          className={`inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition-all ${styles.button}`}
+          className={`passport-action-button passport-action-button--secondary ${styles.button}`}
         >
           {t("清空当前字段", "Clear Current Field")}
         </button>
       </div>
 
-      <div className="mt-5 grid gap-3">
-        <div className="rounded-2xl border border-slate-100 bg-white px-4 py-4">
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-            {t("当前字段值", "Current Field Value")}
-          </p>
-          <p className="mt-2 break-all font-mono text-sm text-slate-700">
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <div className="panel-soft h-auto min-h-0 justify-start p-5">
+          <p className="meta-label">{t("当前字段值", "Current Field Value")}</p>
+          <p className="mt-3 break-all font-mono text-sm font-semibold text-slate-700">
             {resolvedCidValue || t("尚未填写", "Empty")}
           </p>
         </div>
         {gatewayUrl ? (
-          <div className="rounded-2xl border border-slate-100 bg-white px-4 py-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-              {t("网关预览", "Gateway Preview")}
-            </p>
+          <div className="panel-soft h-auto min-h-0 justify-start p-5">
+            <p className="meta-label">{t("网关预览", "Gateway Preview")}</p>
             <a
               href={gatewayUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-flex items-center gap-2 break-all text-sm font-semibold text-slate-700 transition-colors hover:text-slate-950"
+              className="mt-3 inline-flex items-center gap-2 break-all text-sm font-semibold text-slate-700 transition-colors hover:text-slate-950"
             >
               <Link2 size={14} />
               {gatewayUrl}
             </a>
           </div>
         ) : null}
-        {statusMessage ? (
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-4 text-sm font-semibold text-emerald-700">
-            {statusMessage}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-4 text-sm font-semibold text-rose-700">
-            {error}
-          </div>
-        ) : null}
       </div>
+
+      {statusMessage ? (
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+          {statusMessage}
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+          {error}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -3,9 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { CHRONICLE_STAMP_ADDRESS } from "../../../config/passport";
+import CidComposer from "../components/CidComposer";
 import PassportShell from "../components/PassportShell";
 import { usePassportIssueStamp } from "../hooks/usePassportIssueStamp";
 import { usePassportLocale } from "../i18n";
+import { CID_PRESET_BY_KEY } from "../utils/cidPresets";
 
 type PassportIssueStampPageProps = {
   connectedAddress: string;
@@ -20,6 +22,11 @@ const toUnixSeconds = (value: string) => {
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp) ? 0 : Math.floor(timestamp / 1000);
 };
+
+const stampMetadataPreset = CID_PRESET_BY_KEY.stamp;
+const stampInputMetaLabelClass = "meta-label !normal-case !tracking-[0.08em] !text-slate-600";
+const stampInputAuxActionClass =
+  "text-[11px] font-black normal-case tracking-[0.08em] text-slate-700 transition-colors hover:text-orange-600 disabled:opacity-50";
 
 export default function PassportIssueStampPage(props: PassportIssueStampPageProps) {
   const {
@@ -46,7 +53,15 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
     [stampTypeId],
   );
   const parsedSupersedesStampId = useMemo(
-    () => (/^\d+$/.test(supersedesStampId.trim()) ? BigInt(supersedesStampId.trim()) : 0n),
+    () => {
+      const normalizedValue = supersedesStampId.trim();
+
+      if (!normalizedValue) {
+        return 0n;
+      }
+
+      return /^\d+$/.test(normalizedValue) ? BigInt(normalizedValue) : null;
+    },
     [supersedesStampId],
   );
   const {
@@ -61,6 +76,8 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
     latestEffectiveStampId,
     loadAvailableStampTypes,
     loadPermission,
+    passportExists,
+    passportStatus,
     stampType,
     statusMessage,
     submitIssueStamp,
@@ -81,13 +98,6 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
       return t(
         "The frontend does not have a complete Passport contract configuration yet, so it cannot load configured stamp types from chain.",
         "The frontend does not have a complete Passport contract configuration yet, so it cannot load configured stamp types from chain.",
-      );
-    }
-
-    if (isConnected && !hasCorrectChain) {
-      return t(
-        `Your wallet is connected to ${currentChainName}, but the target network is ${targetChainName}. Switch networks before loading configured stamp types.`,
-        `Your wallet is connected to ${currentChainName}, but the target network is ${targetChainName}. Switch networks before loading configured stamp types.`,
       );
     }
 
@@ -114,17 +124,107 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
     void loadPermission(parsedPassportId, parsedStampTypeId);
   }, [loadPermission, parsedPassportId, parsedStampTypeId]);
 
+  const hasSelectedContext = parsedPassportId !== null && parsedStampTypeId !== null;
+  const hasMetadataCid = metadataCID.trim().length > 0;
+  const normalizedPassportStatus =
+    passportStatus === null ? null : Number(passportStatus);
+  const hasResolvedAccessContext = passportExists !== null && stampType !== null;
+  const isSingletonType = stampType?.singleton === true;
+  const passportStatusLabel =
+    normalizedPassportStatus === 1
+      ? t("Active", "Active")
+      : normalizedPassportStatus === 2
+        ? t("Frozen", "Frozen")
+        : normalizedPassportStatus === 3
+          ? t("Retired", "Retired")
+          : normalizedPassportStatus === 0
+            ? t("Uninitialized", "Uninitialized")
+            : t("Unknown", "Unknown");
+  const isPassportActive = passportExists === true && normalizedPassportStatus === 1;
+  const isStampTypeActive = stampType?.active === true;
+  const supersedesInputError =
+    parsedSupersedesStampId === null
+      ? t(
+          "Supersedes Stamp ID must be 0 or a positive integer.",
+          "Supersedes Stamp ID must be 0 or a positive integer.",
+        )
+      : "";
+  const singletonSupersedesError =
+    parsedSupersedesStampId === null || !isSingletonType || !hasResolvedAccessContext
+      ? ""
+      : latestEffectiveStampId === null
+        ? parsedSupersedesStampId !== 0n
+          ? t(
+              "This singleton type has no effective stamp yet, so Supersedes Stamp ID must remain 0.",
+              "This singleton type has no effective stamp yet, so Supersedes Stamp ID must remain 0.",
+            )
+          : ""
+        : parsedSupersedesStampId !== latestEffectiveStampId
+          ? t(
+              `This singleton type must supersede stamp #${latestEffectiveStampId.toString()}.`,
+              `This singleton type must supersede stamp #${latestEffectiveStampId.toString()}.`,
+            )
+          : "";
+  const supersedesHelperMessage =
+    supersedesInputError ||
+    singletonSupersedesError ||
+    (isSingletonType
+      ? latestEffectiveStampId === null
+        ? t(
+            "This singleton type has no effective stamp yet. Keep Supersedes Stamp ID at 0 for the first issuance.",
+            "This singleton type has no effective stamp yet. Keep Supersedes Stamp ID at 0 for the first issuance.",
+          )
+        : t(
+            `The current effective stamp for this singleton type is #${latestEffectiveStampId.toString()}, and the new stamp must supersede it.`,
+            `The current effective stamp for this singleton type is #${latestEffectiveStampId.toString()}, and the new stamp must supersede it.`,
+          )
+      : "");
+  const hasSupersedesValidationError = Boolean(supersedesInputError || singletonSupersedesError);
+  const canSubmitIssue =
+    hasSelectedContext &&
+    isConnected &&
+    hasCorrectChain &&
+    isConfigured &&
+    !isLoadingPermission &&
+    hasMetadataCid &&
+    parsedSupersedesStampId !== null &&
+    canIssue &&
+    isPassportActive &&
+    isStampTypeActive &&
+    !hasSupersedesValidationError &&
+    !isSubmitting;
   const connectedWalletLabel = connectedAddress || t("Not connected", "Not connected");
-  const accessLabel = isLoadingPermission
-    ? t("Checking", "Checking")
-    : canIssue
-      ? t("Authorized Issuer", "Authorized Issuer")
-      : t("Permission Required", "Permission Required");
-  const accessToneClass = isLoadingPermission
-    ? "text-slate-500"
-    : canIssue
+  const accessLabel = !isConnected
+    ? t("Wallet Required", "Wallet Required")
+    : !hasCorrectChain
+      ? t("Wrong Network", "Wrong Network")
+      : !isConfigured
+        ? t("Contracts Missing", "Contracts Missing")
+        : !hasSelectedContext
+          ? t("Context Required", "Context Required")
+          : isLoadingPermission
+            ? t("Checking", "Checking")
+            : !hasResolvedAccessContext
+              ? t("Context Unavailable", "Context Unavailable")
+            : passportExists === false
+              ? t("Invalid Passport", "Invalid Passport")
+              : !isPassportActive
+                ? t("Passport Inactive", "Passport Inactive")
+                : !isStampTypeActive
+                  ? t("Type Not Active", "Type Not Active")
+                  : !canIssue
+                    ? t("Permission Required", "Permission Required")
+                    : parsedSupersedesStampId === null
+                      ? t("Invalid Supersedes", "Invalid Supersedes")
+                      : hasSupersedesValidationError
+                        ? t("Supersedes Required", "Supersedes Required")
+                        : t("Authorized Issuer", "Authorized Issuer");
+  const accessToneClass =
+    accessLabel === t("Authorized Issuer", "Authorized Issuer")
       ? "text-emerald-700"
-      : "text-amber-700";
+      : accessLabel === t("Checking", "Checking")
+        ? "text-slate-500"
+        : "text-amber-700";
 
   return (
     <PassportShell currentKey="issue">
@@ -162,7 +262,7 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                     </p>
                   </div>
                   <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
-                    {connectedWalletLabel}
+                    {accessHint}
                   </p>
                 </div>
 
@@ -177,7 +277,7 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                     </p>
                   </div>
                   <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
-                    ChronicleStamp
+                    {connectedWalletLabel}
                   </p>
                 </div>
 
@@ -212,7 +312,7 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
             <div className="mt-8 grid gap-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="panel-soft p-5">
-                  <label className="meta-label" htmlFor="issue-passport-id">
+                  <label className={stampInputMetaLabelClass} htmlFor="issue-passport-id">
                     {t("Passport ID", "Passport ID")}
                   </label>
                   <input
@@ -227,14 +327,14 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
 
                 <div className="panel-soft p-5">
                   <div className="flex items-center justify-between gap-3">
-                    <label className="meta-label" htmlFor="issue-stamp-type-id">
+                    <label className={stampInputMetaLabelClass} htmlFor="issue-stamp-type-id">
                       {t("Stamp Type", "Stamp Type")}
                     </label>
                     <button
                       type="button"
                       onClick={() => void loadAvailableStampTypes()}
                       disabled={isLoadingAvailableStampTypes}
-                      className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 transition-colors hover:text-orange-600 disabled:opacity-50"
+                      className={stampInputAuxActionClass}
                     >
                       {isLoadingAvailableStampTypes
                         ? t("Loading...", "Loading...")
@@ -298,7 +398,7 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
               </div>
 
               <div className="panel-soft p-5">
-                <label className="meta-label" htmlFor="issue-occurred-at">
+                <label className={stampInputMetaLabelClass} htmlFor="issue-occurred-at">
                   {t("Occurred At", "Occurred At")}
                 </label>
                 <input
@@ -311,7 +411,7 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
               </div>
 
               <div className="panel-soft p-5">
-                <label className="meta-label" htmlFor="issue-metadata-cid">
+                <label className={stampInputMetaLabelClass} htmlFor="issue-metadata-cid">
                   {t("Metadata CID", "Metadata CID")}
                 </label>
                 <input
@@ -322,10 +422,18 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                   placeholder="ipfs://..."
                   className="passport-dashboard-query__input mt-3 h-12"
                 />
+                {!hasMetadataCid ? (
+                  <p className="mt-3 text-sm font-medium text-amber-800">
+                    {t(
+                      "Metadata CID is required. Generate one below or paste an existing ipfs:// value.",
+                      "Metadata CID is required. Generate one below or paste an existing ipfs:// value.",
+                    )}
+                  </p>
+                ) : null}
               </div>
 
               <div className="panel-soft p-5">
-                <label className="meta-label" htmlFor="issue-supersedes">
+                <label className={stampInputMetaLabelClass} htmlFor="issue-supersedes">
                   {t("Supersedes Stamp ID", "Supersedes Stamp ID")}
                 </label>
                 <input
@@ -336,12 +444,27 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                   placeholder={latestEffectiveStampId?.toString() || "0"}
                   className="passport-dashboard-query__input mt-3 h-12 font-mono"
                 />
+                {supersedesHelperMessage ? (
+                  <div
+                    className={`mt-3 rounded-xl px-4 py-3 text-sm font-medium ${
+                      hasSupersedesValidationError
+                        ? "border border-rose-200 bg-rose-50 text-rose-700"
+                        : "border border-sky-200 bg-sky-50 text-sky-900"
+                    }`}
+                  >
+                    {supersedesHelperMessage}
+                  </div>
+                ) : null}
               </div>
 
               <div className="passport-dashboard-primary__actions">
                 <button
                   onClick={() => {
-                    if (parsedPassportId === null || parsedStampTypeId === null) {
+                    if (
+                      parsedPassportId === null ||
+                      parsedStampTypeId === null ||
+                      parsedSupersedesStampId === null
+                    ) {
                       return;
                     }
 
@@ -354,10 +477,7 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                     });
                   }}
                   disabled={
-                    parsedPassportId === null ||
-                    parsedStampTypeId === null ||
-                    !canIssue ||
-                    isSubmitting
+                    !canSubmitIssue
                   }
                   className="passport-action-button passport-action-button--primary"
                 >
@@ -367,6 +487,44 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                     : t("Issue Stamp", "Issue Stamp")}
                 </button>
               </div>
+            </div>
+          </div>
+
+          <div className="passport-dashboard-status panel-surface p-8">
+            <div className="passport-dashboard-panel-head flex items-start justify-between gap-4 border-b border-white/8 pb-6">
+              <div className="passport-dashboard-status__intro">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  {t("Stamp Metadata Preparation", "Stamp Metadata Preparation")}
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm font-medium text-slate-600">
+                  {t(
+                    "Generate the issuance metadata CID here. The resulting value fills back into the form above before you submit the stamp.",
+                    "Generate the issuance metadata CID here. The resulting value fills back into the form above before you submit the stamp.",
+                  )}
+                </p>
+              </div>
+
+              <Link
+                to="/passport/cid-studio"
+                className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-orange-600 transition-colors hover:text-orange-700"
+              >
+                <Link2 size={16} />
+                {t("Open CID Studio", "Open CID Studio")}
+              </Link>
+            </div>
+
+            <div className="mt-8 panel-soft p-5">
+              <CidComposer
+                accent={stampMetadataPreset.accent}
+                defaultPayload={stampMetadataPreset.defaultPayload}
+                description={stampMetadataPreset.description}
+                fieldKey={stampMetadataPreset.fieldKey}
+                formFields={stampMetadataPreset.formFields}
+                framed={false}
+                suggestedFileName={stampMetadataPreset.fileName}
+                value={metadataCID}
+                onChange={setMetadataCID}
+              />
             </div>
           </div>
 
@@ -440,3 +598,6 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
     </PassportShell>
   );
 }
+
+
+

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -240,7 +240,7 @@
     overflow-x: clip;
     min-width: 0;
     padding: 2.5rem 2rem 3rem;
-    background: #f9fafb;
+    background: #fafafa;
   }
 
   .passport-main .shadow-sm {
@@ -493,7 +493,6 @@
     .passport-action-button--secondary,
     .passport-dashboard-primary__button--secondary {
       border: 1px solid #e2e8f0;
-      background: #ffffff;
       color: #0f172a;
       width: auto;
     }
@@ -544,7 +543,7 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr) 184px;
       gap: clamp(10px, 1vw, 12px);
-      align-items: center;
+      align-items: flex-start;
       margin-top: 0;
     }
 
@@ -554,7 +553,6 @@
       padding: 0 clamp(12px, 1.1vw, 16px);
       border: 1px solid #d1d5db;
       border-radius: 12px;
-      background: #ffffff;
       color: #0f172a;
       font-size: clamp(13px, 1vw, 15px);
       font-weight: 600;
@@ -603,8 +601,7 @@
     .passport-dashboard-stats-grid,
     .passport-dashboard-scope-grid,
     .passport-dashboard-status-grid,
-    .passport-dashboard-address-list,
-    .passport-dashboard-notes-grid {
+    .passport-dashboard-address-list {
       gap: 0 !important;
     }
 
@@ -624,8 +621,7 @@
     }
 
     .passport-dashboard-stats-grid > .passport-dashboard-cell,
-    .passport-dashboard-scope-grid > .passport-dashboard-cell,
-    .passport-dashboard-notes-grid > .passport-dashboard-cell {
+    .passport-dashboard-scope-grid > .passport-dashboard-cell {
       min-height: 112px;
       height: 112px;
     }
@@ -693,27 +689,36 @@
       flex-direction: column;
       justify-content: flex-start;
       padding: clamp(14px, 1.6vw, 24px) !important;
+      position: relative;
+      border: 0;
+      border-radius: 0;
+      background: #ffffff;
+      box-shadow: none;
+      box-sizing: border-box;
       min-height: 178.8px !important;
       height: auto !important;
+      overflow: hidden;
       text-decoration: none;
-      transition: background-color 160ms ease, border-color 160ms ease;
+      transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
     }
 
     .passport-dashboard-notes-card__head {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: clamp(10px, 1vw, 16px);
     }
 
     .passport-dashboard-notes-card__content {
+      position: relative;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: flex-start;
       width: 100%;
       max-width: 100%;
       height: 100%;
       min-height: 130.8px;
+      padding-bottom: 32px;
     }
 
     .passport-dashboard-notes-card__copy {
@@ -723,7 +728,6 @@
 
     .passport-dashboard-notes-card:hover {
       background: #f8fafc !important;
-      border-color: #cbd5e1 !important;
     }
 
     .passport-dashboard-notes-card__metric {
@@ -779,15 +783,21 @@
     }
 
     .passport-dashboard-notes-card__link {
-      margin-top: 16px !important;
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      margin-top: 0 !important;
     }
 
     .passport-dashboard-notes-grid {
       display: grid !important;
       grid-template-columns: 1fr !important;
-      gap: clamp(12px, 1.2vw, 18px) !important;
+      gap: 1px !important;
       padding-top: 0;
-      align-items: start;
+      align-items: stretch;
+      overflow: hidden;
+      background: #dfe3e8;
+      border: 1px solid #dfe3e8;
     }
 
     @media (min-width: 768px) {
@@ -806,7 +816,7 @@
       height: auto;
       min-height: 0;
       margin-top: 0;
-      border-width: 1px !important;
+      border-width: 0 !important;
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
@@ -885,18 +895,24 @@
     }
 
     .passport-dashboard-status-grid,
-    .passport-dashboard-address-list,
-    .passport-dashboard-notes-grid {
+    .passport-dashboard-address-list {
       gap: 0 !important;
       padding-top: 0;
     }
 
     .passport-dashboard-status-grid > .passport-dashboard-cell,
-    .passport-dashboard-address-list > .passport-dashboard-cell,
-    .passport-dashboard-notes-grid > .passport-dashboard-cell {
+    .passport-dashboard-address-list > .passport-dashboard-cell {
       height: auto;
       margin-top: 0;
       border-right-width: 1px !important;
+    }
+
+    .passport-dashboard-notes-grid {
+      gap: 1px !important;
+    }
+
+    .passport-dashboard-notes-grid > .passport-dashboard-cell {
+      border-radius: 0 !important;
     }
 
     .passport-dashboard-addresses {
@@ -917,13 +933,277 @@
       padding-top: 0;
     }
 
+    .passport-issuer-policy-directory {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      border-color: #d9e2ea;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.96) 100%);
+    }
+
+    .passport-issuer-policy-directory__header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
+      gap: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #dbe4ec;
+    }
+
+    .passport-issuer-policy-directory__heading {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .passport-issuer-policy-directory__description {
+      margin-top: 10px;
+      max-width: 42rem;
+      color: #475569;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.6;
+    }
+
+    .passport-issuer-policy-directory__count {
+      display: inline-flex;
+      min-width: 56px;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 10px 12px;
+      border: 1px solid #dbe4ec;
+      border-radius: 9999px;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 0.18em;
+    }
+
+    .passport-issuer-policy-directory__body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .passport-issuer-policy-directory__list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .passport-issuer-policy-directory__row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+      padding: 18px 20px;
+      border: 1px solid #dde5ec;
+    }
+
+    .passport-issuer-policy-directory__row-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .passport-issuer-policy-directory__row-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
+      gap: 12px;
+    }
+
+    .passport-issuer-policy-directory__row-title {
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: 0.02em;
+    }
+
+    .passport-issuer-policy-directory__scope-badge {
+      display: inline-flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 6px 10px;
+      border: 1px solid #bae6fd;
+      border-radius: 9999px;
+      background: #f0f9ff;
+      color: #0369a1;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .passport-issuer-policy-directory__address {
+      margin: 0;
+      overflow-wrap: anywhere;
+      color: #334155;
+      font-family: ui-monospace, SFMono-Regular, SFMono, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.6;
+    }
+
+    .passport-issuer-policy-directory__meta {
+      display: grid;
+      gap: 6px;
+      padding-top: 12px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .passport-issuer-policy-directory__meta-label {
+      color: #94a3b8;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .passport-issuer-policy-directory__meta-value {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-all;
+      color: #475569;
+      font-family: ui-monospace, SFMono-Regular, SFMono, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.6;
+    }
+
+    .passport-issuer-policy-directory__meta-empty {
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    .passport-issuer-policy-directory__actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: flex-end;
+      gap: 8px;
+      width: min(100%, 172px);
+    }
+
+    .passport-issuer-policy-directory__action {
+      display: inline-flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 4px;
+      min-height: 32px;
+      padding: 6px 10px;
+      border: 1px solid #dbe3ec;
+      border-radius: 9999px;
+      color: #475569;
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1;
+      text-decoration: none;
+      cursor: pointer;
+      transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
+    }
+
+    .passport-issuer-policy-directory__action:hover {
+      border-color: #93c5fd;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .passport-issuer-policy-directory__action.is-disabled,
+    .passport-issuer-policy-directory__action:disabled {
+      border-color: #e2e8f0;
+      background: #f8fafc;
+      color: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    .passport-issuer-policy-directory__empty {
+      display: flex;
+      align-items: flex-start;
+      min-height: 88px;
+      padding: 18px 20px;
+      color: #64748b;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.7;
+    }
+
+    .passport-issuer-policy-directory-switcher {
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      gap: 12px;
+      border-color: #dbe7f1;
+      background:
+        linear-gradient(135deg, rgba(248, 250, 252, 0.96) 0%, rgba(240, 249, 255, 0.92) 100%);
+    }
+
+    .passport-issuer-policy-directory-switcher__control {
+      display: flex;
+      width: auto;
+      min-width: 116px;
+      height: 48px;
+      padding: 0 20px;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 1;
+    }
+
+    .passport-issuer-policy-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .passport-issuer-policy-group__head {
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .passport-issuer-policy-group__intro {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .passport-issuer-policy-group__description {
+      margin-top: 10px;
+      max-width: 42rem;
+      color: #475569;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.6;
+    }
+
+    .passport-issuer-policy-group__body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-top: 16px;
+    }
+
+    .passport-issuer-policy-group__empty {
+      display: flex;
+      align-items: flex-start;
+      min-height: 76px;
+      margin-top: 4px;
+      line-height: 1.6;
+    }
+
     .passport-dashboard-address-item {
       display: flex;
       flex-direction: column;
       gap: clamp(8px, 0.9vw, 12px);
       padding: clamp(14px, 1.25vw, 18px) clamp(14px, 1.5vw, 20px);
       border: 1px solid #dfe3e8;
-      background: #ffffff;
     }
 
     .passport-dashboard-address-item__header {
@@ -956,7 +1236,7 @@
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      justify-content: space-between;
+      justify-content: flex-start;
       gap: 12px;
       min-width: 0;
     }
@@ -1001,7 +1281,6 @@
       padding: clamp(4px, 0.45vw, 5px) clamp(7px, 0.8vw, 10px);
       border: 1px solid #dbe3ec;
       border-radius: 9999px;
-      background: #ffffff;
       color: #475569;
       font-family: Inter, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
       font-size: clamp(10px, 0.75vw, 11px);
@@ -1026,6 +1305,126 @@
       cursor: not-allowed;
     }
 
+    .passport-dashboard-address-item__meta {
+      display: grid;
+      gap: 6px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .passport-dashboard-address-item__meta-label {
+      color: #94a3b8;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .passport-dashboard-address-item__meta-value {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-all;
+      color: #475569;
+      font-family: ui-monospace, SFMono-Regular, SFMono, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.6;
+    }
+
+    .passport-dashboard-address-item__meta-empty {
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    .passport-issuer-policy-config .meta-label {
+      display: block;
+      margin: 0;
+      color: #0f172a;
+      font-family: "Space Grotesk", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      text-transform: none;
+    }
+
+    .passport-issuer-policy-scope {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      min-height: 0 !important;
+      height: auto !important;
+      gap: 14px;
+    }
+
+    .passport-issuer-policy-scope__options {
+      display: flex;
+      flex-wrap: wrap;
+      align-self: flex-start;
+      gap: 10px;
+    }
+
+    .passport-issuer-policy-scope__option {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      min-width: 112px;
+      min-height: 44px;
+      padding: 10px 18px;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      color: #0f172a;
+      text-align: center;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .passport-issuer-policy-scope__option:hover {
+      border-color: #e2e8f0;
+      color: #0f172a;
+    }
+
+    .passport-issuer-policy-scope__option:focus-visible {
+      outline: 2px solid #38bdf8;
+      outline-offset: 3px;
+    }
+
+    .passport-issuer-policy-scope__option.is-active {
+      border-color: rgb(54, 63, 249);
+      background: rgb(54, 63, 249);
+      color: rgb(255, 255, 255);
+    }
+
+    .passport-issuer-policy-scope__option-label {
+      margin: 0;
+      color: inherit;
+      font-family: "Space Grotesk", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.01em;
+      text-transform: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .passport-issuer-policy-scope__selected {
+      margin: 0;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.6;
+      max-width: 560px;
+    }
+
+    .passport-issuer-policy-scope__option.is-active .passport-issuer-policy-scope__option-label {
+      color: rgb(255, 255, 255);
+    }
+
     .passport-dashboard-status-merged .passport-dashboard-addresses > .meta-label {
       min-height: 40px;
       padding-bottom: 16px;
@@ -1044,6 +1443,88 @@
     }
 
     @media (max-width: 767px) {
+      .passport-issuer-policy-config .meta-label {
+        font-size: 14px;
+      }
+
+      .passport-issuer-policy-directory {
+        gap: 14px;
+      }
+
+      .passport-issuer-policy-directory__header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding-bottom: 14px;
+      }
+
+      .passport-issuer-policy-directory__row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+        padding: 14px;
+      }
+
+      .passport-issuer-policy-directory__row-head {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .passport-issuer-policy-directory__actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .passport-issuer-policy-directory__action {
+        font-size: 10px;
+        padding: 5px 9px;
+      }
+
+      .passport-issuer-policy-directory__empty {
+        min-height: 72px;
+        padding: 16px;
+        font-size: 13px;
+      }
+
+      .passport-issuer-policy-directory-switcher {
+        gap: 10px;
+      }
+
+      .passport-issuer-policy-directory-switcher__control {
+        flex: 1 1 calc(33.333% - 7px);
+        min-width: 0;
+      }
+
+      .passport-issuer-policy-group__head {
+        gap: 12px;
+        padding-bottom: 14px;
+      }
+
+      .passport-issuer-policy-group__body {
+        gap: 10px;
+        padding-top: 14px;
+      }
+
+      .passport-issuer-policy-group__empty {
+        min-height: 68px;
+        margin-top: 2px;
+      }
+
+      .passport-issuer-policy-scope__options {
+        width: 100%;
+      }
+
+      .passport-issuer-policy-scope__option {
+        flex: 1 1 calc(33.333% - 7px);
+        min-width: 0;
+        min-height: 42px;
+        padding: 8px 10px;
+      }
+
+      .passport-issuer-policy-scope__option-label {
+        font-size: 12px;
+      }
+
       .passport-action-link {
         gap: 4px;
         font-size: 10px;
@@ -1053,6 +1534,7 @@
       .passport-dashboard-notes-card__content {
         gap: 12px;
         height: auto;
+        padding-bottom: 28px;
       }
 
       .passport-dashboard-notes-card__head {
@@ -1078,7 +1560,9 @@
       }
 
       .passport-dashboard-notes-card__link {
-        margin-top: 10px !important;
+        left: 0;
+        bottom: 0;
+        margin-top: 0 !important;
       }
     }
 
@@ -1308,11 +1792,13 @@
   }
 
   .passport-workbench-action-card__content {
+    position: relative;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
     min-height: 130.8px;
     height: 100%;
+    padding-bottom: 32px;
   }
 
   .passport-workbench-action-card__copy {
@@ -1353,6 +1839,12 @@
     font-weight: 400;
     line-height: 20px;
     -webkit-font-smoothing: antialiased;
+  }
+
+  .passport-workbench-action-card__link {
+    position: absolute;
+    left: 0;
+    bottom: 0;
   }
 
   .passport-workbench-sequence__description {
@@ -1864,6 +2356,789 @@
       border-top-width: 0 !important;
     }
 
+  }
+
+  .docs-page {
+    min-height: calc(100vh - 72px);
+    padding: 0;
+  }
+
+  .docs-shell {
+    width: min(100%, 1408px);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-height: calc(100vh - 72px);
+    padding: 0 24px;
+    box-sizing: border-box;
+  }
+
+  .docs-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.82fr);
+    gap: clamp(20px, 2.6vw, 36px);
+    align-items: stretch;
+    padding: clamp(24px, 3vw, 40px);
+    border: 1px solid rgba(251, 146, 60, 0.16);
+    border-radius: 32px;
+    background:
+      radial-gradient(circle at 12% 16%, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0) 38%),
+      radial-gradient(circle at 88% 78%, rgba(56, 189, 248, 0.14) 0%, rgba(56, 189, 248, 0) 34%),
+      linear-gradient(135deg, #fffaf5 0%, #fff5eb 48%, #f9fbff 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.76),
+      0 24px 60px -38px rgba(194, 65, 12, 0.18);
+  }
+
+  .docs-hero__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 760px;
+  }
+
+  .docs-hero__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    min-height: 36px;
+    padding: 0 16px;
+    border: 1px solid rgba(251, 146, 60, 0.16);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.76);
+    color: #9a3412;
+    font-family: "Space Grotesk", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .docs-hero__title {
+    margin: 0;
+    color: #431407;
+    font-family: "Space Grotesk", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: clamp(2.6rem, 4vw, 4rem);
+    font-weight: 800;
+    line-height: 1.02;
+    letter-spacing: -0.045em;
+  }
+
+  .docs-hero__description {
+    max-width: 620px;
+    margin: 0;
+    color: rgba(67, 20, 7, 0.74);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.7;
+  }
+
+  .docs-hero__stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .docs-stat {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 180px;
+    padding: 22px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.74);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+    backdrop-filter: blur(12px);
+  }
+
+  .docs-stat__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 12px 24px -22px rgba(15, 23, 42, 0.48);
+  }
+
+  .docs-stat__label {
+    margin: 0;
+    color: #9a3412;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .docs-stat__value {
+    margin: 0;
+    color: #0f172a;
+    font-family: "Space Grotesk", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: clamp(1.35rem, 2vw, 1.9rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+  }
+
+  .docs-stat__description {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.65;
+  }
+
+  .docs-layout {
+    display: grid;
+    grid-template-columns: minmax(250px, 292px) minmax(0, 1fr);
+    width: 100%;
+    gap: 0;
+    align-items: start;
+    min-height: calc(100vh - 72px);
+  }
+
+  .docs-layout.has-outline {
+    grid-template-columns: minmax(250px, 292px) minmax(0, 1fr) minmax(220px, 260px);
+  }
+
+  .docs-sidebar {
+    --docs-nav-font-family: "IBM Plex Sans", Inter, "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+    --docs-nav-group-title-size: 15px;
+    --docs-nav-group-title-line-height: 1.45;
+    --docs-nav-group-title-letter-spacing: -0.01em;
+    --docs-nav-group-title-weight: 600;
+    --docs-nav-link-title-size: 14px;
+    --docs-nav-link-title-line-height: 1.55;
+    --docs-nav-link-title-letter-spacing: -0.005em;
+    --docs-nav-link-title-weight: 500;
+    --docs-nav-link-title-active-weight: 600;
+    position: sticky;
+    top: 65px;
+    align-self: start;
+    padding: 16px 22px 24px 0;
+  }
+
+  .docs-page[data-locale="zh"] .docs-sidebar {
+    --docs-nav-font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Source Han Sans SC", "IBM Plex Sans", sans-serif;
+    --docs-nav-group-title-line-height: 1.5;
+    --docs-nav-group-title-letter-spacing: 0;
+    --docs-nav-link-title-line-height: 1.6;
+    --docs-nav-link-title-letter-spacing: 0;
+  }
+
+  .docs-sidebar__frame {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-height: calc(100vh - 89px);
+    padding: 14px 22px 22px;
+    border-radius: 28px;
+    font-family: var(--docs-nav-font-family);
+  }
+
+  .docs-sidebar__nav {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 18px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 6px;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .docs-sidebar__nav::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .docs-sidebar__nav::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .docs-sidebar__nav::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.55);
+    background-clip: padding-box;
+  }
+
+  .docs-sidebar__nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.72);
+    background-clip: padding-box;
+  }
+
+  .docs-nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .docs-nav-group__toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #475569;
+    font-family: var(--docs-nav-font-family);
+    font-size: var(--docs-nav-group-title-size);
+    font-weight: var(--docs-nav-group-title-weight);
+    line-height: var(--docs-nav-group-title-line-height);
+    letter-spacing: var(--docs-nav-group-title-letter-spacing);
+    text-align: left;
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+
+  .docs-nav-group__toggle:hover {
+    background: #f7f7f7;
+    color: #0f172a;
+  }
+
+  .docs-nav-group.is-open .docs-nav-group__toggle {
+    background: transparent;
+    color: #0f172a;
+  }
+
+  .docs-nav-group.is-active .docs-nav-group__toggle {
+    background: transparent;
+    color: #0f172a;
+  }
+
+  .docs-nav-group__title {
+    color: inherit;
+    font: inherit;
+  }
+
+  .docs-nav-group__icon {
+    flex-shrink: 0;
+    color: #94a3b8;
+  }
+
+  .docs-nav-group__icon.is-open {
+    color: #0f172a;
+    transform: rotate(90deg);
+  }
+
+  .docs-nav-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-left: 12px;
+  }
+
+  .docs-nav-entry {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .docs-nav-entry--top-level {
+    gap: 0;
+  }
+
+  .docs-nav-top-link {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #475569;
+    font-family: var(--docs-nav-font-family);
+    font-size: var(--docs-nav-group-title-size);
+    font-weight: var(--docs-nav-group-title-weight);
+    line-height: var(--docs-nav-group-title-line-height);
+    letter-spacing: var(--docs-nav-group-title-letter-spacing);
+    text-align: left;
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+
+  .docs-nav-top-link:hover {
+    background: #f7f7f7;
+    color: #0f172a;
+  }
+
+  .docs-nav-top-link.is-active {
+    color: #0f172a;
+  }
+
+  .docs-nav-top-link__title {
+    color: inherit;
+    font: inherit;
+  }
+
+  .docs-nav-link {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 6px;
+    color: #334155;
+    background: transparent;
+    font-family: var(--docs-nav-font-family);
+    font-size: var(--docs-nav-link-title-size);
+    font-weight: var(--docs-nav-link-title-weight);
+    line-height: var(--docs-nav-link-title-line-height);
+    letter-spacing: var(--docs-nav-link-title-letter-spacing);
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+
+  .docs-nav-link:hover {
+    background: #f7f7f7;
+    color: #0f172a;
+  }
+
+  .docs-nav-link.is-active {
+    color: #0f172a;
+  }
+
+  .docs-nav-entry.is-active .docs-nav-link__title {
+    font-weight: var(--docs-nav-link-title-active-weight);
+  }
+
+  .docs-nav-link__copy {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .docs-nav-link__title {
+    color: inherit;
+    font: inherit;
+  }
+
+  .docs-outline {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: calc(100vh - 89px);
+    padding: 18px 18px 20px;
+    border-radius: 24px;
+  }
+
+  .docs-outline__header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .docs-outline__eyebrow {
+    margin: 0;
+    color: #9a3412;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .docs-outline__title {
+    margin: 0;
+    color: #0f172a;
+    font-family: "Space Grotesk", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .docs-outline__list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+  }
+
+  .docs-outline__list::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .docs-outline__list::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .docs-outline__list::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.55);
+    background-clip: padding-box;
+  }
+
+  .docs-outline__link {
+    display: block;
+    padding: 2px 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.65;
+    transition: color 160ms ease, transform 160ms ease;
+  }
+
+  .docs-outline__link:hover,
+  .docs-outline__link.is-active {
+    color: #0f172a;
+    transform: translateX(2px);
+  }
+
+  .docs-outline__link.is-active {
+    font-weight: 700;
+  }
+
+  .docs-outline__link.level-3 {
+    padding-left: 14px;
+  }
+
+  .docs-outline-rail {
+    position: sticky;
+    top: 65px;
+    align-self: start;
+    min-width: 0;
+    min-height: calc(100vh - 72px);
+    padding: 16px 0 24px 20px;
+  }
+
+  .docs-article {
+    min-width: 0;
+    min-height: calc(100vh - 72px);
+    padding: clamp(18px, 2.2vw, 28px) clamp(28px, 3.2vw, 48px) 56px;
+    border-radius: 0;
+    background: #f7f7f7;
+  }
+
+  .docs-article__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+  }
+
+  .docs-layout.is-overview .docs-sidebar {
+    padding-top: 6px;
+  }
+
+  .docs-layout.is-overview .docs-outline-rail {
+    padding-top: 6px;
+  }
+
+  .docs-layout.is-overview .docs-article {
+    padding-top: 8px;
+  }
+
+  .docs-layout.is-overview .docs-article__meta {
+    gap: 8px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+  }
+
+  .docs-article__eyebrow {
+    margin: 0;
+    color: #9a3412;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .docs-article__title {
+    margin: 0;
+    color: #0f172a;
+    font-family: "Space Grotesk", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 25.6px;
+    font-weight: 700;
+    line-height: 1.06;
+    letter-spacing: -0.04em;
+  }
+
+  .docs-article__description {
+    max-width: 720px;
+    margin: 0;
+    color: #64748b;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .docs-article__path {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .docs-article__path code {
+    padding: 8px 10px;
+    border-radius: 999px;
+    color: #334155;
+    font-family: "JetBrains Mono", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+
+  .docs-markdown {
+    max-width: 880px;
+  }
+
+  .docs-markdown > :first-child {
+    margin-top: 0;
+  }
+
+  .docs-markdown h1,
+  .docs-markdown h2,
+  .docs-markdown h3,
+  .docs-markdown h4,
+  .docs-markdown h5,
+  .docs-markdown h6 {
+    scroll-margin-top: 110px;
+  }
+
+  .docs-markdown h1 {
+    margin: 0 0 18px;
+    color: #0f172a;
+    font-family: "Space Grotesk", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: clamp(2.2rem, 3vw, 3.2rem);
+    font-weight: 700;
+    line-height: 1.06;
+    letter-spacing: -0.04em;
+  }
+
+  .docs-markdown h2 {
+    margin: 40px 0 14px;
+    color: #0f172a;
+    font-size: 22.75px;
+    font-weight: 800;
+    line-height: 1.18;
+    letter-spacing: -0.03em;
+  }
+
+  .docs-markdown h3 {
+    margin: 28px 0 12px;
+    color: #1e293b;
+    font-size: 22.75px;
+    font-weight: 800;
+    line-height: 1.3;
+  }
+
+  .docs-markdown h4,
+  .docs-markdown h5,
+  .docs-markdown h6 {
+    margin: 22px 0 10px;
+    color: #334155;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.45;
+  }
+
+  .docs-markdown p {
+    margin: 14px 0 0;
+    color: #475569;
+    font-size: 15px;
+    line-height: 1.9;
+  }
+
+  .docs-markdown ul,
+  .docs-markdown ol {
+    margin: 14px 0 0;
+    padding-left: 22px;
+    color: #475569;
+  }
+
+  .docs-markdown li + li {
+    margin-top: 8px;
+  }
+
+  .docs-markdown li {
+    padding-left: 4px;
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  .docs-markdown a {
+    color: #0369a1;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(3, 105, 161, 0.18);
+    transition: color 160ms ease, border-color 160ms ease;
+  }
+
+  .docs-markdown a:hover {
+    color: #0c4a6e;
+    border-color: rgba(12, 74, 110, 0.24);
+  }
+
+  .docs-inline-code {
+    padding: 2px 7px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #0f172a;
+    font-family: "JetBrains Mono", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 0.9em;
+    font-weight: 600;
+  }
+
+  .docs-markdown pre {
+    overflow-x: auto;
+    margin: 18px 0 0;
+    padding: 18px 20px;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    background: #0f172a;
+    color: #e2e8f0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .docs-markdown pre code {
+    font-family: "JetBrains Mono", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 13px;
+    line-height: 1.8;
+    white-space: pre;
+  }
+
+  @media (max-width: 1023px) {
+    .docs-page {
+      padding: 16px 16px 48px;
+    }
+
+    .docs-shell {
+      width: 100%;
+      padding: 0;
+    }
+
+    .docs-hero {
+      grid-template-columns: 1fr;
+      border-radius: 28px;
+    }
+
+    .docs-hero__stats {
+      grid-template-columns: 1fr;
+    }
+
+    .docs-layout,
+    .docs-layout.has-outline {
+      grid-template-columns: 1fr;
+      gap: 18px;
+      min-height: 0;
+    }
+
+    .docs-sidebar {
+      position: static;
+      padding: 0;
+      padding-right: 0;
+      border-right: 0;
+    }
+
+    .docs-sidebar__frame {
+      max-height: none;
+      border-radius: 24px;
+      padding: 18px;
+    }
+
+    .docs-sidebar__nav {
+      gap: 18px;
+      overflow-y: visible;
+      padding-right: 0;
+      scrollbar-gutter: auto;
+    }
+
+    .docs-outline-rail {
+      position: static;
+      min-height: 0;
+      padding: 0;
+      border-left: 0;
+      background: transparent;
+    }
+
+    .docs-outline {
+      max-height: none;
+      border-radius: 24px;
+    }
+
+    .docs-outline__list {
+      overflow-y: visible;
+      padding-right: 0;
+      scrollbar-gutter: auto;
+    }
+
+    .docs-article {
+      min-height: 0;
+      border-radius: 0;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .docs-page {
+      padding: 12px 12px 40px;
+    }
+
+    .docs-shell {
+      gap: 20px;
+    }
+
+    .docs-hero {
+      padding: 20px;
+      border-radius: 24px;
+    }
+
+    .docs-hero__title {
+      font-size: clamp(2rem, 9.8vw, 2.8rem);
+    }
+
+    .docs-sidebar__frame {
+      padding: 16px;
+      border-radius: 22px;
+    }
+
+    .docs-outline {
+      padding: 16px;
+      border-radius: 22px;
+    }
+
+    .docs-nav-link {
+      padding: 13px 13px 13px 14px;
+      border-radius: 6px;
+    }
+
+    .docs-nav-top-link {
+      padding: 13px 13px 13px 14px;
+      border-radius: 6px;
+    }
+
+    .docs-article {
+      padding: 16px 16px;
+      border-radius: 0;
+    }
+
+    .docs-article__path {
+      align-items: flex-start;
+    }
   }
 
   .accent-grid {

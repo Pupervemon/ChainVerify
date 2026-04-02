@@ -4,8 +4,10 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-
 import Banner from "./components/Banner";
 import AppNavigation from "./components/AppNavigation";
 import Toast from "./components/Toast";
+import WalletConnectionNotice from "./components/WalletConnectionNotice";
 import { useProofWorkspace } from "./features/proof/hooks/useProofWorkspace";
 import { useWalletSession } from "./hooks/useWalletSession";
+import type { ToastState, ToastVariant } from "./types/toast";
 
 const HomePage = lazy(() => import("./features/proof/pages/HomePage"));
 const DashboardPage = lazy(() => import("./features/proof/pages/DashboardPage"));
@@ -36,6 +38,7 @@ const PassportStampTypePermissionPage = lazy(
 );
 const PassportDetailPage = lazy(() => import("./features/passport/pages/PassportDetailPage"));
 const CidStudioPage = lazy(() => import("./pages/CidStudioPage"));
+const DocsPage = lazy(() => import("./pages/DocsPage"));
 const ProofPage = lazy(() => import("./pages/ProofPage"));
 
 function RouteLoadingFallback() {
@@ -56,7 +59,11 @@ function RouteLoadingFallback() {
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [uploadStatus, setUploadStatus] = useState("");
+  const [statusToast, setStatusToast] = useState<ToastState | null>(null);
+  const [walletConnectionNotice, setWalletConnectionNotice] = useState<{
+    id: number;
+    message: string;
+  } | null>(null);
   const [navSearchQuery, setNavSearchQuery] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -78,7 +85,14 @@ function App() {
     setIsAccountMenuOpen,
     targetChainName,
     truncateAddress,
-  } = useWalletSession({ onStatusChange: setUploadStatus });
+  } = useWalletSession({
+    onStatusChange: setStatusToast,
+    onWalletConnected: (message) =>
+      setWalletConnectionNotice({
+        id: Date.now(),
+        message,
+      }),
+  });
 
   const {
     currentPage,
@@ -100,7 +114,7 @@ function App() {
     ensureSupportedChain,
     hasCorrectChain,
     isConnected,
-    onStatusChange: setUploadStatus,
+    onStatusChange: setStatusToast,
   });
 
   const isProofPage = location.pathname.startsWith("/proof/");
@@ -112,31 +126,39 @@ function App() {
   }, [fetchProofs, isConnected, location.pathname]);
 
   useEffect(() => {
-    if (!uploadStatus) {
-      return;
-    }
-
-    const timer = setTimeout(() => setUploadStatus(""), 3000);
-    return () => clearTimeout(timer);
-  }, [uploadStatus]);
-
-  useEffect(() => {
     if (verificationResult.status !== "success" || !verificationResult.proof) {
       return;
     }
 
     const timer = setTimeout(
-      () => navigate(`/proof/${verificationResult.proof?.file_hash}`),
+      () => {
+        setVerificationResult({ status: "idle" });
+        navigate(`/proof/${verificationResult.proof?.file_hash}`);
+      },
       1500,
     );
     return () => clearTimeout(timer);
-  }, [navigate, verificationResult]);
+  }, [navigate, setVerificationResult, verificationResult]);
 
   const handleClearFile = (event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
     resetSelectedFile();
   };
+
+  let verificationToastMessage = "";
+  let verificationToastVariant: ToastVariant = "info";
+
+  if (verificationResult.status === "verifying") {
+    verificationToastMessage = "Verifying file fingerprint...";
+    verificationToastVariant = "loading";
+  } else if (verificationResult.status === "success") {
+    verificationToastMessage = verificationResult.message ?? "";
+    verificationToastVariant = "success";
+  } else if (verificationResult.status === "mismatch" || verificationResult.status === "error") {
+    verificationToastMessage = verificationResult.message ?? "";
+    verificationToastVariant = "error";
+  }
 
   return (
     <div className="min-h-screen bg-white font-sans text-[#111827]">
@@ -166,15 +188,20 @@ function App() {
         />
       )}
 
-      <Toast message={uploadStatus} onClose={() => setUploadStatus("")} />
       <Toast
-        message={
-          verificationResult.status === "verifying"
-            ? "Verifying file fingerprint..."
-            : verificationResult.status !== "idle"
-              ? verificationResult.message ?? ""
-              : ""
-        }
+        message={statusToast?.message ?? ""}
+        variant={statusToast?.variant}
+        onClose={() => setStatusToast(null)}
+      />
+      <WalletConnectionNotice
+        key={walletConnectionNotice?.id ?? "wallet-connection-notice"}
+        message={walletConnectionNotice?.message ?? ""}
+        onClose={() => setWalletConnectionNotice(null)}
+      />
+      <Toast
+        message={verificationToastMessage}
+        variant={verificationToastVariant}
+        topClassName={statusToast ? "top-40" : "top-24"}
         onClose={() => setVerificationResult({ status: "idle" })}
       />
 
@@ -318,6 +345,8 @@ function App() {
           <Route path="/passport/cid-studio" element={<CidStudioPage />} />
           <Route path="/passport/:passportId" element={<PassportDetailPage />} />
           <Route path="/cid-studio" element={<Navigate to="/passport/cid-studio" replace />} />
+          <Route path="/doc" element={<DocsPage />} />
+          <Route path="/doc/:slug" element={<DocsPage />} />
           <Route path="/proof/:hash" element={<ProofPage />} />
         </Routes>
       </Suspense>

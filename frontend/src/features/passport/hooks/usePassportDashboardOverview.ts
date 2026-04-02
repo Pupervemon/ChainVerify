@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { usePublicClient } from "wagmi";
+import { TARGET_CHAIN_ID } from "../../../config/network";
 
 import {
   arePassportContractsConfigured,
@@ -59,7 +60,7 @@ const INITIAL_OVERVIEW: PassportDashboardOverview = {
 };
 
 export function usePassportDashboardOverview(): UsePassportDashboardOverviewResult {
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: TARGET_CHAIN_ID });
   const isConfigured = arePassportContractsConfigured();
   const [overview, setOverview] = useState<PassportDashboardOverview | null>(null);
   const [error, setError] = useState("");
@@ -264,3 +265,4 @@ export function usePassportDashboardOverview(): UsePassportDashboardOverviewResu
     overview,
   };
 }
+

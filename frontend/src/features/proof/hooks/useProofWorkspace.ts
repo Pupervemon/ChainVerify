@@ -9,6 +9,7 @@ import {
 } from "../../../config/app";
 import { computeSHA256Hex } from "../../../lib/crypto";
 import type { Proof } from "../../../types/proof";
+import type { ToastState } from "../../../types/toast";
 import { fetchProofByHash, fetchProofsByWallet, uploadProofFile } from "../api/proofApi";
 
 type VerificationResult = {
@@ -20,7 +21,7 @@ type VerificationResult = {
 type UseProofWorkspaceOptions = {
   address?: string;
   isConnected: boolean;
-  onStatusChange?: (message: string) => void;
+  onStatusChange?: (toast: ToastState | null) => void;
   ensureSupportedChain: () => Promise<boolean>;
   hasCorrectChain: boolean;
 };
@@ -157,7 +158,10 @@ export function useProofWorkspace(options: UseProofWorkspaceOptions) {
       return;
     }
 
-    onStatusChange?.("Uploading file to IPFS through the backend...");
+    onStatusChange?.({
+      message: "Uploading file to IPFS through the backend...",
+      variant: "loading",
+    });
 
     try {
       const { cid, file_name, file_size, file_hash } = await uploadProofFile(file);
@@ -175,10 +179,16 @@ export function useProofWorkspace(options: UseProofWorkspaceOptions) {
         ],
       });
 
-      onStatusChange?.("Transaction submitted.");
+      onStatusChange?.({
+        message: "Transaction submitted. Waiting for confirmation...",
+        variant: "loading",
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Upload failed.";
-      onStatusChange?.(`Error: ${message}`);
+      onStatusChange?.({
+        message: `Error: ${message}`,
+        variant: "error",
+      });
     }
   }, [
     address,
@@ -228,7 +238,10 @@ export function useProofWorkspace(options: UseProofWorkspaceOptions) {
     }
 
     if (isTxConfirmed) {
-      onStatusChange("Proof stored successfully. The record is now on-chain.");
+      onStatusChange({
+        message: "Proof stored successfully. The record is now on-chain.",
+        variant: "success",
+      });
     }
   }, [isTxConfirmed, onStatusChange]);
 
@@ -241,7 +254,10 @@ export function useProofWorkspace(options: UseProofWorkspaceOptions) {
 
   useEffect(() => {
     if (isTxError && txError) {
-      onStatusChange?.(`Transaction failed: ${txError.message}`);
+      onStatusChange?.({
+        message: `Transaction failed: ${txError.message}`,
+        variant: "error",
+      });
     }
   }, [isTxError, onStatusChange, txError]);
 

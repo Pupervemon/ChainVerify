@@ -1,4 +1,3 @@
-import { DatabaseZap, Files, Link2, ShieldCheck, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import CidComposer, {
@@ -15,6 +14,7 @@ type TemplatePreset = {
   formFields: CidComposerFormField[];
   key: string;
   label: string;
+  targetLabel: string;
   usage: string;
 };
 
@@ -51,6 +51,7 @@ const presets: TemplatePreset[] = [
     ],
     key: "passport",
     label: "护照元数据",
+    targetLabel: "passportMetadataCID",
     usage: "通常用于 passportMetadataCID。",
   },
   {
@@ -78,6 +79,7 @@ const presets: TemplatePreset[] = [
     ],
     key: "asset",
     label: "资产元数据",
+    targetLabel: "assetMetadataCID",
     usage: "通常用于 assetMetadataCID。",
   },
   {
@@ -110,6 +112,7 @@ const presets: TemplatePreset[] = [
     ],
     key: "stamp",
     label: "Stamp 详情",
+    targetLabel: "metadataCID",
     usage: "通常用于 metadataCID 或 issuance/revocation 场景。",
   },
   {
@@ -143,6 +146,7 @@ const presets: TemplatePreset[] = [
     ],
     key: "policy",
     label: "策略文档",
+    targetLabel: "policyCID",
     usage: "通常用于 policyCID。",
   },
   {
@@ -177,6 +181,7 @@ const presets: TemplatePreset[] = [
     ],
     key: "schema",
     label: "Schema 文档",
+    targetLabel: "schemaCID",
     usage: "简单字段可用表单，复杂 schema 建议切到 JSON 模式。",
   },
 ];
@@ -189,217 +194,182 @@ export default function CidStudioPage() {
     () => presets.find((preset) => preset.key === activePresetKey) ?? presets[0],
     [activePresetKey],
   );
+  const hasCidValue = cidValue.trim().length > 0;
+  const presetCountLabel = presets.length.toString().padStart(2, "0");
+  const outputStatusLabel = hasCidValue ? "已就绪" : "待生成";
+  const outputStatusToneClass = hasCidValue ? "text-emerald-700" : "text-slate-500";
 
   return (
     <PassportShell currentKey="cid-studio">
-      <div className="flex w-full flex-col gap-6 py-2">
-        <section className="overflow-hidden rounded-[2.5rem] bg-[radial-gradient(circle_at_top_left,_rgba(224,242,254,0.96),_rgba(255,255,255,1)_42%,_rgba(236,253,245,0.92)_100%)] p-8 shadow-[0_24px_72px_-40px_rgba(14,165,233,0.35)] lg:p-10">
-          <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
-            <div className="space-y-5">
-              <span className="inline-flex rounded-full bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-sky-600 shadow-sm">
-                CID Studio
-              </span>
+      <div className="passport-dashboard-body">
+        <section className="passport-dashboard-primary panel-surface accent-grid relative overflow-hidden p-8 lg:p-10">
+          <div className="passport-dashboard-primary__grid relative">
+            <div className="passport-dashboard-primary__content space-y-5">
+              <span className="passport-dashboard-primary__header">CID Studio</span>
+
               <div className="space-y-3">
-                <h1 className="max-w-3xl text-4xl font-black tracking-[-0.04em] text-slate-950 lg:text-5xl">
-                  用表单创建 IPFS 内容，不再让用户从一整段 JSON 开始。
+                <h1 className="max-w-3xl font-nav text-4xl font-bold tracking-[-0.04em] text-slate-900 lg:text-5xl">
+                  按模板组织内容，再生成可直接复用的 CID。
                 </h1>
-                <p className="max-w-2xl text-base font-medium leading-relaxed text-slate-600">
-                  先选模板，再按字段填写内容。普通用户默认使用表单模式，高级用户可以随时切到 JSON
-                  或文件上传模式，最后直接拿到 `ipfs://...` 地址用于各类 CID 字段。
+                <p className="max-w-2xl text-base font-medium text-slate-900">
+                  这个页面把 Passport 常见的 metadata、policy 和 schema 场景整理成结构化模板，
+                  生成后直接回填 `ipfs://...` 值。
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-3">
-                <div className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 shadow-sm">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                    Main Flow
+              <div className="passport-dashboard-stats-grid grid gap-3">
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">Active Preset</p>
+                    <p className="passport-dashboard-stat-card__value mt-2 font-nav font-bold tracking-tight text-slate-900">
+                      {activePreset.label}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    {activePreset.description}
                   </p>
-                  <p className="mt-1 font-semibold text-slate-800">选模板 / 填内容 / 生成 CID</p>
                 </div>
-                <div className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 shadow-sm">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                    Output
-                  </p>
-                  <p className="mt-1 font-semibold text-slate-800">`ipfs://...` + Gateway 预览</p>
-                </div>
-              </div>
-            </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[1.75rem] border border-slate-100 bg-white/90 p-6 shadow-sm">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
-                  <Sparkles size={22} />
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">Target Field</p>
+                    <p className="mt-2 break-all font-mono text-sm font-semibold text-slate-900">
+                      {activePreset.targetLabel}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    {activePreset.usage}
+                  </p>
                 </div>
-                <p className="mt-5 text-lg font-black text-slate-900">表单优先</p>
-                <p className="mt-2 text-sm font-medium leading-relaxed text-slate-600">
-                  用业务字段代替原始 JSON，减少输入门槛和格式错误。
-                </p>
-              </div>
-              <div className="rounded-[1.75rem] border border-slate-100 bg-white/90 p-6 shadow-sm">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-                  <DatabaseZap size={22} />
+
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">Templates</p>
+                    <p className="passport-dashboard-stat-card__value mt-2 font-nav font-bold tracking-tight text-cyan-700">
+                      {presetCountLabel}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    表单、JSON、文件上传三种生成方式都可用。
+                  </p>
                 </div>
-                <p className="mt-5 text-lg font-black text-slate-900">自动生成</p>
-                <p className="mt-2 text-sm font-medium leading-relaxed text-slate-600">
-                  表单内容会自动整理成 JSON，再上传到 IPFS 并回填 CID。
-                </p>
-              </div>
-              <div className="rounded-[1.75rem] border border-slate-100 bg-white/90 p-6 shadow-sm">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
-                  <Files size={22} />
+
+                <div className="passport-dashboard-cell passport-dashboard-stat-card panel-soft">
+                  <div className="passport-dashboard-stat-card__body">
+                    <p className="passport-dashboard-card-label">Output</p>
+                    <p
+                      className={`passport-dashboard-stat-card__value mt-2 font-nav font-bold tracking-tight ${outputStatusToneClass}`}
+                    >
+                      {outputStatusLabel}
+                    </p>
+                  </div>
+                  <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
+                    {hasCidValue ? "当前值已经可以直接粘贴到业务表单。" : "生成后会自动回填到当前字段值。"}
+                  </p>
                 </div>
-                <p className="mt-5 text-lg font-black text-slate-900">保留高级模式</p>
-                <p className="mt-2 text-sm font-medium leading-relaxed text-slate-600">
-                  需要时可以切回 JSON 编辑，或直接上传图片、PDF、现成文件。
-                </p>
-              </div>
-              <div className="rounded-[1.75rem] border border-slate-100 bg-white/90 p-6 shadow-sm">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
-                  <ShieldCheck size={22} />
-                </div>
-                <p className="mt-5 text-lg font-black text-slate-900">适配所有 CID 字段</p>
-                <p className="mt-2 text-sm font-medium leading-relaxed text-slate-600">
-                  可复用于 metadataCID、schemaCID、policyCID、reasonCID 等场景。
-                </p>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
-          <div className="space-y-6">
-            <div className="rounded-[2rem] border border-slate-100 bg-white p-7 shadow-sm">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
-                Presets
-              </p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                先选一个适合的模板
-              </h2>
-              <div className="mt-6 grid gap-3">
-                {presets.map((preset) => {
-                  const isActive = preset.key === activePreset.key;
-
-                  return (
-                    <button
-                      key={preset.key}
-                      onClick={() => setActivePresetKey(preset.key)}
-                      className={`rounded-[1.5rem] border px-5 py-4 text-left transition-all ${
-                        isActive
-                          ? "border-sky-200 bg-sky-50 shadow-[0_12px_24px_-20px_rgba(14,165,233,0.6)]"
-                          : "border-slate-100 bg-slate-50/60 hover:border-slate-200 hover:bg-white"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-black tracking-tight text-slate-900">{preset.label}</p>
-                          <p className="mt-2 text-sm font-medium leading-relaxed text-slate-600">
-                            {preset.description}
-                          </p>
-                        </div>
-                        {isActive ? (
-                          <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-sky-600">
-                            当前
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-3 font-mono text-xs text-slate-500">{preset.fileName}</p>
-                    </button>
-                  );
-                })}
+        <section className="passport-dashboard-secondary space-y-6">
+          <div className="passport-dashboard-status panel-surface p-8">
+            <div className="passport-dashboard-panel-head flex items-start gap-4 border-b border-white/8 pb-6">
+              <div className="passport-dashboard-status__intro">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  Compose CID
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm font-medium text-slate-600">
+                  左侧选模板并确认输出目标，右侧直接填写内容或切换到 JSON / 文件模式生成。
+                </p>
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-slate-100 bg-white p-7 shadow-sm">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
-                Current
-              </p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                当前输出
-              </h2>
-              <div className="mt-6 space-y-4">
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                    Active Preset
-                  </p>
-                  <p className="mt-2 text-lg font-black text-slate-900">{activePreset.label}</p>
-                  <p className="mt-2 text-sm font-medium text-slate-600">{activePreset.usage}</p>
+            <div className="mt-8 grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+              <div className="space-y-4">
+                <div className="panel-soft h-auto min-h-0 justify-start p-5">
+                  <p className="meta-label">Preset Library</p>
+                  <div className="mt-4 grid gap-3">
+                    {presets.map((preset) => {
+                      const isActive = preset.key === activePreset.key;
+
+                      return (
+                        <button
+                          key={preset.key}
+                          type="button"
+                          onClick={() => setActivePresetKey(preset.key)}
+                          className={`w-full rounded-xl border px-4 py-4 text-left transition-all ${
+                            isActive
+                              ? "border-slate-900 bg-slate-100"
+                              : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-black tracking-tight text-slate-900">
+                                {preset.label}
+                              </p>
+                              <p className="mt-2 text-sm font-medium leading-relaxed text-slate-600">
+                                {preset.description}
+                              </p>
+                            </div>
+                            {isActive ? (
+                              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-700">
+                                当前
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="mt-3 space-y-1">
+                            <p className="font-mono text-xs text-slate-500">{preset.fileName}</p>
+                            <p className="font-mono text-xs text-slate-500">{preset.targetLabel}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                    CID Value
-                  </p>
-                  <p className="mt-2 break-all font-mono text-sm text-slate-700">
-                    {cidValue || "尚未生成"}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                    推荐方式
-                  </p>
-                  <div className="mt-3 space-y-2 text-sm font-medium leading-relaxed text-slate-600">
-                    <p>普通用户优先用表单模式，字段更清晰，也更不容易输错。</p>
-                    <p>复杂 schema 或已有现成 metadata 时，再切换到 JSON 或文件模式。</p>
+
+                <div className="panel-soft h-auto min-h-0 justify-start p-5">
+                  <p className="meta-label">Current Output</p>
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                        Target Field
+                      </p>
+                      <p className="mt-2 break-all font-mono text-sm font-semibold text-slate-900">
+                        {activePreset.targetLabel}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                        File Name
+                      </p>
+                      <p className="mt-2 break-all font-mono text-sm font-semibold text-slate-900">
+                        {activePreset.fileName}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                        CID Value
+                      </p>
+                      <p className="mt-2 break-all font-mono text-sm font-semibold text-slate-700">
+                        {cidValue || "尚未生成"}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="rounded-[2rem] border border-slate-100 bg-white p-7 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
-                  Studio
-                </p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                  填好内容后直接生成 CID
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm font-medium leading-relaxed text-slate-600">
-                  当前模板会先展示结构化表单。如果你已经准备好原始 JSON，或者想上传一个现成文件，也可以直接切换模式。
-                </p>
-              </div>
-              <div className="rounded-full bg-slate-100 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
-                ipfs://
-              </div>
-            </div>
-
-            <CidComposer
-              accent={activePreset.accent}
-              defaultPayload={activePreset.defaultPayload}
-              description={activePreset.description}
-              fieldKey={activePreset.fieldKey}
-              formFields={activePreset.formFields}
-              suggestedFileName={activePreset.fileName}
-              value={cidValue}
-              onChange={setCidValue}
-            />
-
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <div className="rounded-[1.5rem] bg-slate-50 px-5 py-5">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                  1. 填写
-                </p>
-                <p className="mt-3 text-sm font-medium leading-relaxed text-slate-600">
-                  用表单整理 metadata，避免先和 JSON 结构搏斗。
-                </p>
-              </div>
-              <div className="rounded-[1.5rem] bg-slate-50 px-5 py-5">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                  2. 生成
-                </p>
-                <p className="mt-3 text-sm font-medium leading-relaxed text-slate-600">
-                  组件会自动打包文件并上传到 `/api/v1/ipfs/upload`。
-                </p>
-              </div>
-              <div className="rounded-[1.5rem] bg-slate-50 px-5 py-5">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                  3. 使用
-                </p>
-                <p className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
-                  <Link2 size={14} />
-                  生成后可直接粘贴到任何需要 CID 的表单字段中。
-                </p>
-              </div>
+              <CidComposer
+                accent={activePreset.accent}
+                defaultPayload={activePreset.defaultPayload}
+                fieldKey={activePreset.fieldKey}
+                framed={false}
+                formFields={activePreset.formFields}
+                suggestedFileName={activePreset.fileName}
+                value={cidValue}
+                onChange={setCidValue}
+              />
             </div>
           </div>
         </section>

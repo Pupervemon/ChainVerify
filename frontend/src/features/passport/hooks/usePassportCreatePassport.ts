@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+﻿import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { decodeEventLog, zeroAddress } from "viem";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
@@ -11,7 +11,7 @@ import {
   PASSPORT_FACTORY_ABI,
   PASSPORT_FACTORY_ADDRESS,
 } from "../../../config/passport";
-import { TARGET_CHAIN_NAME, TARGET_CHAIN_ID } from "../../../config/network";
+import { TARGET_CHAIN_ID, TARGET_CHAIN_NAME } from "../../../config/network";
 import { usePassportLocale } from "../i18n";
 import {
   getPassportCreatePermissionQueryKey,
@@ -141,7 +141,10 @@ export function usePassportCreatePassport(
       setError(
         loadError instanceof Error
           ? loadError.message
-          : t("检查护照创建权限失败。", "Failed to check passport creation permission."),
+          : t(
+              "Failed to check passport creation permission.",
+              "Failed to check passport creation permission.",
+            ),
       );
     } finally {
       setIsLoadingPermission(false);
@@ -159,22 +162,37 @@ export function usePassportCreatePassport(
   const submitCreatePassport = useCallback(
     async (form: CreatePassportForm) => {
       if (!isConnected) {
-        setError(t("请先连接钱包再提交。", "Connect a wallet before submitting."));
+        setError(t("Connect a wallet before submitting.", "Connect a wallet before submitting."));
         return;
       }
 
       if (!isConfigured) {
-        setError(t("资产护照合约尚未配置。", "Passport contracts are not configured."));
+        setError(t("Passport contracts are not configured.", "Passport contracts are not configured."));
         return;
       }
 
       if (!isPassportAddress(form.initialHolder)) {
-        setError(t("初始持有人必须是有效地址。", "Initial holder must be a valid address."));
+        setError(t("Initial holder must be a valid address.", "Initial holder must be a valid address."));
         return;
       }
 
       if (!/^0x[a-fA-F0-9]{64}$/.test(form.assetFingerprint)) {
-        setError(t("资产指纹必须是 bytes32 十六进制值。", "Asset fingerprint must be a bytes32 hex value."));
+        setError(
+          t(
+            "Asset fingerprint must be a bytes32 hex value.",
+            "Asset fingerprint must be a bytes32 hex value.",
+          ),
+        );
+        return;
+      }
+
+      if (!form.passportMetadataCID.trim()) {
+        setError(t("Passport Metadata CID is required.", "Passport Metadata CID is required."));
+        return;
+      }
+
+      if (!form.assetMetadataCID.trim()) {
+        setError(t("Asset Metadata CID is required.", "Asset Metadata CID is required."));
         return;
       }
 
@@ -185,7 +203,12 @@ export function usePassportCreatePassport(
       setError("");
       setCreatedPassportId(null);
       setCreatedSubjectAccount("");
-      setStatusMessage(t("正在提交护照创建交易...", "Submitting passport creation transaction..."));
+      setStatusMessage(
+        t(
+          "Submitting passport creation transaction...",
+          "Submitting passport creation transaction...",
+        ),
+      );
 
       try {
         await writeContractAsync({
@@ -206,7 +229,10 @@ export function usePassportCreatePassport(
         setError(
           submitError instanceof Error
             ? submitError.message
-            : t("提交护照创建交易失败。", "Failed to submit passport creation transaction."),
+            : t(
+                "Failed to submit passport creation transaction.",
+                "Failed to submit passport creation transaction.",
+              ),
         );
       }
     },
@@ -215,6 +241,7 @@ export function usePassportCreatePassport(
       hasCorrectChain,
       isConfigured,
       isConnected,
+      t,
       writeContractAsync,
     ],
   );
@@ -274,10 +301,13 @@ export function usePassportCreatePassport(
     setCreatedSubjectAccount(parsedSubjectAccount);
     setStatusMessage(
       parsedPassportId !== null
-        ? t(`护照 #${parsedPassportId.toString()} 创建成功。`, `Passport #${parsedPassportId.toString()} created successfully.`)
-        : t("护照创建交易已确认。", "Passport creation confirmed."),
+        ? t(
+            `Passport #${parsedPassportId.toString()} created successfully.`,
+            `Passport #${parsedPassportId.toString()} created successfully.`,
+          )
+        : t("Passport creation confirmed.", "Passport creation confirmed."),
     );
-  }, [isConfirmed, receipt]);
+  }, [isConfirmed, receipt, t]);
 
   useEffect(() => {
     if (!isTxError || !txError) {

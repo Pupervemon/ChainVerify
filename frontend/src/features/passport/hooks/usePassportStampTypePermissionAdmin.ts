@@ -1,7 +1,8 @@
-import { useQueryClient } from "@tanstack/react-query";
+﻿import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
+import { TARGET_CHAIN_ID } from "../../../config/network";
 import {
   arePassportContractsConfigured,
   isPassportAddress,
@@ -41,7 +42,7 @@ export function usePassportStampTypePermissionAdmin(
   const { t } = usePassportLocale();
   const { address, ensureSupportedChain, hasCorrectChain, isConnected } = options;
   const queryClient = useQueryClient();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: TARGET_CHAIN_ID });
   const isConfigured = arePassportContractsConfigured();
   const [adminStatus, setAdminStatus] = useState<boolean | null>(null);
   const cachedAuthorityOwner = isConfigured
@@ -111,7 +112,7 @@ export function usePassportStampTypePermissionAdmin(
       setError(
         loadError instanceof Error
           ? loadError.message
-          : t("加载 PassportAuthority owner 失败。", "Failed to load PassportAuthority owner."),
+          : t("鍔犺浇 PassportAuthority owner 澶辫触銆?, "Failed to load PassportAuthority owner."),
       );
     } finally {
       setIsLoadingAuthorityOwner(false);
@@ -142,7 +143,7 @@ export function usePassportStampTypePermissionAdmin(
         setError(
           loadError instanceof Error
             ? loadError.message
-            : t("加载印章类型管理员状态失败。", "Failed to load stamp type admin status."),
+            : t("鍔犺浇鍗扮珷绫诲瀷绠＄悊鍛樼姸鎬佸け璐ャ€?, "Failed to load stamp type admin status."),
         );
       } finally {
         setIsCheckingAdmin(false);
@@ -154,17 +155,17 @@ export function usePassportStampTypePermissionAdmin(
   const setStampTypeAdmin = useCallback(
     async (stampTypeId: bigint, adminAddress: string, enabled: boolean) => {
       if (!isConnected || !address) {
-        setError(t("请先连接钱包再提交。", "Connect a wallet before submitting."));
+        setError(t("璇峰厛杩炴帴閽卞寘鍐嶆彁浜ゃ€?, "Connect a wallet before submitting."));
         return;
       }
 
       if (!isConfigured) {
-        setError(t("资产护照合约尚未配置。", "Passport contracts are not configured."));
+        setError(t("璧勪骇鎶ょ収鍚堢害灏氭湭閰嶇疆銆?, "Passport contracts are not configured."));
         return;
       }
 
       if (!isPassportAddress(adminAddress)) {
-        setError(t("请输入有效的管理员地址。", "Enter a valid admin address."));
+        setError(t("璇疯緭鍏ユ湁鏁堢殑绠＄悊鍛樺湴鍧€銆?, "Enter a valid admin address."));
         return;
       }
 
@@ -176,11 +177,11 @@ export function usePassportStampTypePermissionAdmin(
       setStatusMessage(
         enabled
           ? t(
-              "正在提交印章类型管理员授权交易...",
+              "姝ｅ湪鎻愪氦鍗扮珷绫诲瀷绠＄悊鍛樻巿鏉冧氦鏄?..",
               "Submitting stamp type admin grant transaction...",
             )
           : t(
-              "正在提交印章类型管理员撤销交易...",
+              "姝ｅ湪鎻愪氦鍗扮珷绫诲瀷绠＄悊鍛樻挙閿€浜ゆ槗...",
               "Submitting stamp type admin revoke transaction...",
             ),
       );
@@ -200,7 +201,7 @@ export function usePassportStampTypePermissionAdmin(
         setError(
           submitError instanceof Error
             ? submitError.message
-            : t("提交印章类型管理员交易失败。", "Failed to submit stamp type admin transaction."),
+            : t("鎻愪氦鍗扮珷绫诲瀷绠＄悊鍛樹氦鏄撳け璐ャ€?, "Failed to submit stamp type admin transaction."),
         );
       }
     },
@@ -244,11 +245,11 @@ export function usePassportStampTypePermissionAdmin(
     setStatusMessage(
       lastSubmittedEnabled
         ? t(
-            `印章类型 #${lastSubmittedStampTypeId.toString()} 的管理员授权成功。`,
+            `鍗扮珷绫诲瀷 #${lastSubmittedStampTypeId.toString()} 鐨勭鐞嗗憳鎺堟潈鎴愬姛銆俙,
             `Admin granted for stamp type #${lastSubmittedStampTypeId.toString()}.`,
           )
         : t(
-            `印章类型 #${lastSubmittedStampTypeId.toString()} 的管理员已撤销。`,
+            `鍗扮珷绫诲瀷 #${lastSubmittedStampTypeId.toString()} 鐨勭鐞嗗憳宸叉挙閿€銆俙,
             `Admin revoked for stamp type #${lastSubmittedStampTypeId.toString()}.`,
           ),
     );
@@ -285,3 +286,6 @@ export function usePassportStampTypePermissionAdmin(
     statusMessage,
   };
 }
+
+
+

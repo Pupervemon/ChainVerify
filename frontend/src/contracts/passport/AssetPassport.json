@@ -949,7 +949,7 @@
   "address": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
   "chainId": 31337,
   "contractName": "AssetPassport",
-  "deployedAt": "2026-04-01T11:44:18.272Z",
+  "deployedAt": "2026-04-02T09:41:36.193Z",
   "network": "localhost",
   "sourceName": "contracts/passport/AssetPassport.sol"
 }

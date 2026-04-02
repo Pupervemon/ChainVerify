@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePublicClient } from "wagmi";
+import { TARGET_CHAIN_ID } from "../../../config/network";
 
 import {
   arePassportContractsConfigured,
@@ -59,7 +60,7 @@ const sortStampsByLatest = (left: ChronicleStampRecordResult, right: ChronicleSt
 
 export function usePassportDetail(passportId?: bigint): UsePassportDetailResult {
   const { t } = usePassportLocale();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: TARGET_CHAIN_ID });
   const isConfigured = arePassportContractsConfigured();
   const [detail, setDetail] = useState<PassportDetail | null>(null);
   const [error, setError] = useState("");
@@ -176,7 +177,7 @@ export function usePassportDetail(passportId?: bigint): UsePassportDetailResult 
       setError(
         loadError instanceof Error
           ? loadError.message
-          : t("加载护照数据时发生未知错误。", "An unknown error occurred while loading passport data."),
+          : t("加载护照数据时发生未知错误�?, "An unknown error occurred while loading passport data."),
       );
     } finally {
       setIsLoading(false);
@@ -196,3 +197,4 @@ export function usePassportDetail(passportId?: bigint): UsePassportDetailResult 
     refresh,
   };
 }
+

@@ -19,14 +19,6 @@ type AppNavigationProps = {
   truncateAddress: (value: string) => string;
 };
 
-const navigationItems = [
-  { label: "Notary", path: "/" },
-  { label: "Dashboard", path: "/dashboard" },
-  { label: "Passport", path: "/passport" },
-  { label: "ZKP", path: "/zkp" },
-  { label: "DOC", path: "/doc" },
-];
-
 const navControlClassName =
   "h-10 rounded-full border border-slate-200 bg-slate-100/70 text-sm transition-all duration-300";
 
@@ -41,7 +33,7 @@ const isActiveNavigationItem = (currentPathname: string, itemPath: string) => {
 };
 
 export default function AppNavigation(props: AppNavigationProps) {
-  const { locale, setLocale } = usePassportLocale();
+  const { locale, setLocale, t } = usePassportLocale();
   const {
     activeWalletIcon,
     activeWalletName,
@@ -56,7 +48,14 @@ export default function AppNavigation(props: AppNavigationProps) {
     setAccountMenuRef,
     truncateAddress,
   } = props;
-  const isPassportRoute = pathname.startsWith("/passport");
+  const showLocaleToggle = pathname.startsWith("/passport") || pathname.startsWith("/doc");
+  const navigationItems = [
+    { label: "Notary", path: "/" },
+    { label: "Dashboard", path: "/dashboard" },
+    { label: "Passport", path: "/passport" },
+    { label: "ZKP", path: "/zkp" },
+    { label: t("文档", "DOC"), path: "/doc" },
+  ];
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white font-nav selection:bg-orange-100">
@@ -82,7 +81,7 @@ export default function AppNavigation(props: AppNavigationProps) {
             ))}
           </div>
 
-          {isPassportRoute ? (
+          {showLocaleToggle ? (
             <button
               onClick={() => setLocale(locale === "zh" ? "en" : "zh")}
               className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-[11px] font-black uppercase tracking-[0.18em] text-slate-600 transition-all hover:border-sky-200 hover:text-sky-600 xl:hidden"
@@ -95,7 +94,7 @@ export default function AppNavigation(props: AppNavigationProps) {
 
         <div className="flex items-center justify-between gap-3 lg:justify-end lg:gap-5">
           <div className="hidden w-[88px] justify-start xl:flex">
-            {isPassportRoute ? (
+            {showLocaleToggle ? (
               <button
                 onClick={() => setLocale(locale === "zh" ? "en" : "zh")}
                 className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-[11px] font-black uppercase tracking-[0.18em] text-slate-600 transition-all hover:border-sky-200 hover:text-sky-600"
@@ -138,13 +137,13 @@ export default function AppNavigation(props: AppNavigationProps) {
               </button>
 
               {isAccountMenuOpen && (
-                <div className="animate-in fade-in slide-in-from-top-2 absolute right-0 z-50 mt-3 w-48 rounded-2xl border border-slate-100 bg-white p-2 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] duration-200">
+                <div className="animate-in fade-in slide-in-from-top-2 absolute left-[2.625rem] right-0 z-50 mt-3 rounded-2xl border border-slate-100 bg-white p-1.5 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] duration-200">
                   <button
                     onClick={onDisconnect}
-                    className="group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] font-medium text-slate-600 transition-all hover:bg-red-50 hover:text-red-600"
+                    className="group flex w-full items-center gap-1.5 rounded-xl px-2 py-1.5 text-[11px] font-semibold text-slate-600 transition-all hover:bg-red-50 hover:text-red-600"
                   >
-                    <span className="inline-flex h-5 w-5 items-center justify-center text-slate-400 transition-colors group-hover:text-red-500">
-                      <LogOut size={13} />
+                    <span className="inline-flex h-4 w-4 items-center justify-center text-slate-400 transition-colors group-hover:text-red-500">
+                      <LogOut size={12} />
                     </span>
                     Disconnect
                   </button>

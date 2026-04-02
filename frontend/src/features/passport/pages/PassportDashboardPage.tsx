@@ -444,7 +444,7 @@ export default function PassportDashboardPage() {
                   <Link
                     key={lane.title}
                     to={lane.href}
-                    className="passport-dashboard-cell passport-dashboard-notes-card panel-soft"
+                    className="passport-dashboard-cell passport-dashboard-notes-card group"
                   >
                     <div className="passport-dashboard-notes-card__content">
                       <div className="passport-dashboard-notes-card__head">
@@ -460,7 +460,10 @@ export default function PassportDashboardPage() {
                       </div>
                       <span className="passport-action-link passport-dashboard-notes-card__link mt-4">
                         {t("Open Surface", "Open Surface")}
-                        <ArrowRight size={14} />
+                        <ArrowRight
+                          size={14}
+                          className="transition-transform duration-200 group-hover:translate-x-1 group-hover:text-slate-700"
+                        />
                       </span>
                     </div>
                   </Link>

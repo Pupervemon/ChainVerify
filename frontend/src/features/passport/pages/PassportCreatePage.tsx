@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { PASSPORT_FACTORY_ADDRESS } from "../../../config/passport";
+import CidComposer from "../components/CidComposer";
 import PassportShell from "../components/PassportShell";
 import { usePassportCreatePassport } from "../hooks/usePassportCreatePassport";
 import { usePassportLocale } from "../i18n";
+import { CID_PRESET_BY_KEY } from "../utils/cidPresets";
 
 type PassportCreatePageProps = {
   connectedAddress: string;
@@ -13,6 +15,9 @@ type PassportCreatePageProps = {
   hasCorrectChain: boolean;
   isConnected: boolean;
 };
+
+const passportMetadataPreset = CID_PRESET_BY_KEY.passport;
+const assetMetadataPreset = CID_PRESET_BY_KEY.asset;
 
 export default function PassportCreatePage(props: PassportCreatePageProps) {
   const { connectedAddress, ensureSupportedChain, hasCorrectChain, isConnected } = props;
@@ -69,6 +74,8 @@ export default function PassportCreatePage(props: PassportCreatePageProps) {
         "Creator access must be granted before minting a passport.",
         "Creator access must be granted before minting a passport.",
       );
+  const hasRequiredMetadata =
+    passportMetadataCID.trim().length > 0 && assetMetadataCID.trim().length > 0;
 
   return (
     <PassportShell currentKey="create">
@@ -207,6 +214,15 @@ export default function PassportCreatePage(props: PassportCreatePageProps) {
                 />
               </div>
 
+              {!hasRequiredMetadata ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+                  {t(
+                    "Passport Metadata CID and Asset Metadata CID are required. Generate them in the metadata preparation section below or paste existing ipfs:// values.",
+                    "Passport Metadata CID and Asset Metadata CID are required. Generate them in the metadata preparation section below or paste existing ipfs:// values.",
+                  )}
+                </div>
+              ) : null}
+
               <div className="passport-dashboard-primary__actions">
                 <button
                   onClick={() =>
@@ -217,7 +233,7 @@ export default function PassportCreatePage(props: PassportCreatePageProps) {
                       passportMetadataCID: passportMetadataCID.trim(),
                     })
                   }
-                  disabled={!canCreatePassport || isSubmitting}
+                  disabled={!canCreatePassport || isSubmitting || !hasRequiredMetadata}
                   className="passport-action-button passport-action-button--primary"
                 >
                   <PlusCircle size={16} />
@@ -225,6 +241,60 @@ export default function PassportCreatePage(props: PassportCreatePageProps) {
                     ? t("Submitting...", "Submitting...")
                     : t("Create Passport", "Create Passport")}
                 </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="passport-dashboard-status panel-surface p-8">
+            <div className="passport-dashboard-panel-head flex items-start justify-between gap-4 border-b border-white/8 pb-6">
+              <div className="passport-dashboard-status__intro">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  {t("Metadata Preparation", "Metadata Preparation")}
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm font-medium text-slate-600">
+                  {t(
+                    "Generate the passport and asset metadata CIDs here. The resulting values fill back into the form above and are required before creation.",
+                    "Generate the passport and asset metadata CIDs here. The resulting values fill back into the form above and are required before creation.",
+                  )}
+                </p>
+              </div>
+
+              <Link
+                to="/passport/cid-studio"
+                className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-emerald-600 transition-colors hover:text-emerald-700"
+              >
+                <Link2 size={16} />
+                {t("Open CID Studio", "Open CID Studio")}
+              </Link>
+            </div>
+
+            <div className="mt-8 grid gap-4 xl:grid-cols-2">
+              <div className="panel-soft p-5">
+                <CidComposer
+                  accent={passportMetadataPreset.accent}
+                  defaultPayload={passportMetadataPreset.defaultPayload}
+                  description={passportMetadataPreset.description}
+                  fieldKey={passportMetadataPreset.fieldKey}
+                  formFields={passportMetadataPreset.formFields}
+                  framed={false}
+                  suggestedFileName={passportMetadataPreset.fileName}
+                  value={passportMetadataCID}
+                  onChange={setPassportMetadataCID}
+                />
+              </div>
+
+              <div className="panel-soft p-5">
+                <CidComposer
+                  accent={assetMetadataPreset.accent}
+                  defaultPayload={assetMetadataPreset.defaultPayload}
+                  description={assetMetadataPreset.description}
+                  fieldKey={assetMetadataPreset.fieldKey}
+                  formFields={assetMetadataPreset.formFields}
+                  framed={false}
+                  suggestedFileName={assetMetadataPreset.fileName}
+                  value={assetMetadataCID}
+                  onChange={setAssetMetadataCID}
+                />
               </div>
             </div>
           </div>

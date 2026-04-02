@@ -1,7 +1,8 @@
-import { useQueryClient } from "@tanstack/react-query";
+﻿import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
+import { TARGET_CHAIN_ID } from "../../../config/network";
 import {
   arePassportContractsConfigured,
   isPassportAddress,
@@ -42,7 +43,7 @@ export function usePassportCreatorAdmin(
   const { t } = usePassportLocale();
   const { address, ensureSupportedChain, hasCorrectChain, isConnected } = options;
   const queryClient = useQueryClient();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: TARGET_CHAIN_ID });
   const isConfigured = arePassportContractsConfigured();
   const cachedAuthorityOwner = isConfigured
     ? queryClient.getQueryData<string>(getPassportAuthorityOwnerQueryKey())
@@ -111,7 +112,7 @@ export function usePassportCreatorAdmin(
       setError(
         loadError instanceof Error
           ? loadError.message
-          : t("加载 PassportAuthority owner 失败。", "Failed to load PassportAuthority owner."),
+          : t("鍔犺浇 PassportAuthority owner 澶辫触銆?, "Failed to load PassportAuthority owner."),
       );
     } finally {
       setIsLoadingAuthorityOwner(false);
@@ -142,7 +143,7 @@ export function usePassportCreatorAdmin(
         setError(
           loadError instanceof Error
             ? loadError.message
-            : t("加载护照创建者状态失败。", "Failed to load passport creator status."),
+            : t("鍔犺浇鎶ょ収鍒涘缓鑰呯姸鎬佸け璐ャ€?, "Failed to load passport creator status."),
         );
       } finally {
         setIsCheckingCreator(false);
@@ -154,17 +155,17 @@ export function usePassportCreatorAdmin(
   const setPassportCreator = useCallback(
     async (operatorAddress: string, enabled: boolean) => {
       if (!isConnected || !address) {
-        setError(t("请先连接钱包再提交。", "Connect a wallet before submitting."));
+        setError(t("璇峰厛杩炴帴閽卞寘鍐嶆彁浜ゃ€?, "Connect a wallet before submitting."));
         return;
       }
 
       if (!isConfigured) {
-        setError(t("资产护照合约尚未配置。", "Passport contracts are not configured."));
+        setError(t("璧勪骇鎶ょ収鍚堢害灏氭湭閰嶇疆銆?, "Passport contracts are not configured."));
         return;
       }
 
       if (!isPassportAddress(operatorAddress)) {
-        setError(t("请输入有效的操作员地址。", "Enter a valid operator address."));
+        setError(t("璇疯緭鍏ユ湁鏁堢殑鎿嶄綔鍛樺湴鍧€銆?, "Enter a valid operator address."));
         return;
       }
 
@@ -175,8 +176,8 @@ export function usePassportCreatorAdmin(
       setError("");
       setStatusMessage(
         enabled
-          ? t("正在提交创建权限授权交易...", "Submitting creator grant transaction...")
-          : t("正在提交创建权限撤销交易...", "Submitting creator revoke transaction..."),
+          ? t("姝ｅ湪鎻愪氦鍒涘缓鏉冮檺鎺堟潈浜ゆ槗...", "Submitting creator grant transaction...")
+          : t("姝ｅ湪鎻愪氦鍒涘缓鏉冮檺鎾ら攢浜ゆ槗...", "Submitting creator revoke transaction..."),
       );
       setLastSubmittedOperator(operatorAddress);
       setLastSubmittedEnabled(enabled);
@@ -193,7 +194,7 @@ export function usePassportCreatorAdmin(
         setError(
           submitError instanceof Error
             ? submitError.message
-            : t("提交护照创建者权限交易失败。", "Failed to submit passport creator transaction."),
+            : t("鎻愪氦鎶ょ収鍒涘缓鑰呮潈闄愪氦鏄撳け璐ャ€?, "Failed to submit passport creator transaction."),
         );
       }
     },
@@ -231,8 +232,8 @@ export function usePassportCreatorAdmin(
 
     setStatusMessage(
       lastSubmittedEnabled
-        ? t("护照创建者授权成功。", "Passport creator granted successfully.")
-        : t("护照创建者撤销成功。", "Passport creator revoked successfully."),
+        ? t("鎶ょ収鍒涘缓鑰呮巿鏉冩垚鍔熴€?, "Passport creator granted successfully.")
+        : t("鎶ょ収鍒涘缓鑰呮挙閿€鎴愬姛銆?, "Passport creator revoked successfully."),
     );
     void loadCreatorStatus(lastSubmittedOperator);
   }, [isConfirmed, lastSubmittedEnabled, lastSubmittedOperator, loadCreatorStatus]);
@@ -261,3 +262,6 @@ export function usePassportCreatorAdmin(
     setPassportCreator,
   };
 }
+
+
+

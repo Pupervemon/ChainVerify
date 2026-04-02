@@ -629,7 +629,7 @@
   "address": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
   "chainId": 31337,
   "contractName": "ChronicleStamp",
-  "deployedAt": "2026-04-01T11:44:18.272Z",
+  "deployedAt": "2026-04-02T09:41:36.193Z",
   "network": "localhost",
   "sourceName": "contracts/passport/ChronicleStamp.sol"
 }

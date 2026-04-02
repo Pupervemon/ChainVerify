@@ -1,7 +1,8 @@
-import { useQueryClient } from "@tanstack/react-query";
+﻿import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
+import { TARGET_CHAIN_ID } from "../../../config/network";
 import {
   arePassportContractsConfigured,
   isPassportAddress,
@@ -41,7 +42,7 @@ export function usePassportRevocationOperatorAdmin(
   const { t } = usePassportLocale();
   const { address, ensureSupportedChain, hasCorrectChain, isConnected } = options;
   const queryClient = useQueryClient();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: TARGET_CHAIN_ID });
   const isConfigured = arePassportContractsConfigured();
   const cachedAuthorityOwner = isConfigured
     ? queryClient.getQueryData<string>(getPassportAuthorityOwnerQueryKey())
@@ -110,7 +111,7 @@ export function usePassportRevocationOperatorAdmin(
       setError(
         loadError instanceof Error
           ? loadError.message
-          : t("加载 PassportAuthority owner 失败。", "Failed to load PassportAuthority owner."),
+          : t("鍔犺浇 PassportAuthority owner 澶辫触銆?, "Failed to load PassportAuthority owner."),
       );
     } finally {
       setIsLoadingAuthorityOwner(false);
@@ -141,7 +142,7 @@ export function usePassportRevocationOperatorAdmin(
         setError(
           loadError instanceof Error
             ? loadError.message
-            : t("加载撤销操作员状态失败。", "Failed to load revocation operator status."),
+            : t("鍔犺浇鎾ら攢鎿嶄綔鍛樼姸鎬佸け璐ャ€?, "Failed to load revocation operator status."),
         );
       } finally {
         setIsCheckingOperator(false);
@@ -153,17 +154,17 @@ export function usePassportRevocationOperatorAdmin(
   const setRevocationOperator = useCallback(
     async (operatorAddress: string, enabled: boolean) => {
       if (!isConnected || !address) {
-        setError(t("请先连接钱包再提交。", "Connect a wallet before submitting."));
+        setError(t("璇峰厛杩炴帴閽卞寘鍐嶆彁浜ゃ€?, "Connect a wallet before submitting."));
         return;
       }
 
       if (!isConfigured) {
-        setError(t("资产护照合约尚未配置。", "Passport contracts are not configured."));
+        setError(t("璧勪骇鎶ょ収鍚堢害灏氭湭閰嶇疆銆?, "Passport contracts are not configured."));
         return;
       }
 
       if (!isPassportAddress(operatorAddress)) {
-        setError(t("请输入有效的操作员地址。", "Enter a valid operator address."));
+        setError(t("璇疯緭鍏ユ湁鏁堢殑鎿嶄綔鍛樺湴鍧€銆?, "Enter a valid operator address."));
         return;
       }
 
@@ -175,11 +176,11 @@ export function usePassportRevocationOperatorAdmin(
       setStatusMessage(
         enabled
           ? t(
-              "正在提交撤销操作员授权交易...",
+              "姝ｅ湪鎻愪氦鎾ら攢鎿嶄綔鍛樻巿鏉冧氦鏄?..",
               "Submitting revocation-operator grant transaction...",
             )
           : t(
-              "正在提交撤销操作员撤销交易...",
+              "姝ｅ湪鎻愪氦鎾ら攢鎿嶄綔鍛樻挙閿€浜ゆ槗...",
               "Submitting revocation-operator revoke transaction...",
             ),
       );
@@ -199,7 +200,7 @@ export function usePassportRevocationOperatorAdmin(
           submitError instanceof Error
             ? submitError.message
             : t(
-                "提交撤销操作员权限交易失败。",
+                "鎻愪氦鎾ら攢鎿嶄綔鍛樻潈闄愪氦鏄撳け璐ャ€?,
                 "Failed to submit revocation operator permission transaction.",
               ),
         );
@@ -239,8 +240,8 @@ export function usePassportRevocationOperatorAdmin(
 
     setStatusMessage(
       lastSubmittedEnabled
-        ? t("撤销操作员授权成功。", "Revocation operator granted successfully.")
-        : t("撤销操作员撤销成功。", "Revocation operator revoked successfully."),
+        ? t("鎾ら攢鎿嶄綔鍛樻巿鏉冩垚鍔熴€?, "Revocation operator granted successfully.")
+        : t("鎾ら攢鎿嶄綔鍛樻挙閿€鎴愬姛銆?, "Revocation operator revoked successfully."),
     );
     void loadRevocationOperatorStatus(lastSubmittedOperator);
   }, [
@@ -274,3 +275,6 @@ export function usePassportRevocationOperatorAdmin(
     statusMessage,
   };
 }
+
+
+

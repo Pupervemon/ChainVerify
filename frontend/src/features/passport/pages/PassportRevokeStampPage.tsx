@@ -2,9 +2,11 @@ import { Link2, Undo2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import CidComposer from "../components/CidComposer";
 import PassportShell from "../components/PassportShell";
 import { usePassportRevokeStamp } from "../hooks/usePassportRevokeStamp";
 import { usePassportLocale } from "../i18n";
+import { CID_PRESET_BY_KEY } from "../utils/cidPresets";
 
 type PassportRevokeStampPageProps = {
   connectedAddress: string;
@@ -12,6 +14,8 @@ type PassportRevokeStampPageProps = {
   hasCorrectChain: boolean;
   isConnected: boolean;
 };
+
+const revocationReasonPreset = CID_PRESET_BY_KEY.reason;
 
 export default function PassportRevokeStampPage(props: PassportRevokeStampPageProps) {
   const { connectedAddress, ensureSupportedChain, hasCorrectChain, isConnected } = props;
@@ -61,6 +65,7 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
     : canRevoke
       ? "text-emerald-700"
       : "text-amber-700";
+  const hasReasonCid = reasonCID.trim().length > 0;
 
   return (
     <PassportShell currentKey="revoke">
@@ -173,6 +178,14 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
                   placeholder="ipfs://..."
                   className="passport-dashboard-query__input mt-3 h-12"
                 />
+                {!hasReasonCid ? (
+                  <p className="mt-3 text-sm font-medium text-amber-800">
+                    {t(
+                      "Reason CID is required. Generate one below or paste an existing ipfs:// value.",
+                      "Reason CID is required. Generate one below or paste an existing ipfs:// value.",
+                    )}
+                  </p>
+                ) : null}
               </div>
 
               <div className="passport-dashboard-primary__actions">
@@ -184,7 +197,7 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
 
                     void submitRevokeStamp(parsedStampId, reasonCID);
                   }}
-                  disabled={parsedStampId === null || !canRevoke || isSubmitting}
+                  disabled={parsedStampId === null || !canRevoke || isSubmitting || !hasReasonCid}
                   className="passport-action-button passport-action-button--primary"
                 >
                   <Undo2 size={16} />
@@ -193,6 +206,44 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
                     : t("Revoke Stamp", "Revoke Stamp")}
                 </button>
               </div>
+            </div>
+          </div>
+
+          <div className="passport-dashboard-status panel-surface p-8">
+            <div className="passport-dashboard-panel-head flex items-start justify-between gap-4 border-b border-white/8 pb-6">
+              <div className="passport-dashboard-status__intro">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  {t("Revocation Reason Preparation", "Revocation Reason Preparation")}
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm font-medium text-slate-600">
+                  {t(
+                    "Generate the revocation reason CID here. The resulting value fills back into the form above before you submit the revocation.",
+                    "Generate the revocation reason CID here. The resulting value fills back into the form above before you submit the revocation.",
+                  )}
+                </p>
+              </div>
+
+              <Link
+                to="/passport/cid-studio"
+                className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-rose-600 transition-colors hover:text-rose-700"
+              >
+                <Link2 size={16} />
+                {t("Open CID Studio", "Open CID Studio")}
+              </Link>
+            </div>
+
+            <div className="mt-8 panel-soft p-5">
+              <CidComposer
+                accent={revocationReasonPreset.accent}
+                defaultPayload={revocationReasonPreset.defaultPayload}
+                description={revocationReasonPreset.description}
+                fieldKey={revocationReasonPreset.fieldKey}
+                formFields={revocationReasonPreset.formFields}
+                framed={false}
+                suggestedFileName={revocationReasonPreset.fileName}
+                value={reasonCID}
+                onChange={setReasonCID}
+              />
             </div>
           </div>
 
@@ -272,3 +323,4 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
     </PassportShell>
   );
 }
+

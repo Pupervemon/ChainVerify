@@ -16,10 +16,12 @@ import {
   TARGET_CHAIN,
   TARGET_CHAIN_NAME,
 } from "../config/network";
+import type { ToastState } from "../types/toast";
 import { wagmiConfig } from "../wagmi";
 
 type UseWalletSessionOptions = {
-  onStatusChange?: (message: string) => void;
+  onStatusChange?: (toast: ToastState | null) => void;
+  onWalletConnected?: (message: string) => void;
 };
 
 type WalletIconSource = string | (() => Promise<string>);
@@ -32,7 +34,7 @@ type WalletConnectorWithDetails = {
 };
 
 export function useWalletSession(options: UseWalletSessionOptions = {}) {
-  const { onStatusChange } = options;
+  const { onStatusChange, onWalletConnected } = options;
   const { isConnected, address, connector: activeConnector } = useAccount();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
@@ -182,15 +184,24 @@ export function useWalletSession(options: UseWalletSessionOptions = {}) {
     }
 
     hasPromptedChainSwitchRef.current = true;
-    onStatusChange?.(`Wrong network detected. Switching to ${TARGET_CHAIN_NAME}...`);
+    onStatusChange?.({
+      message: `Wrong network detected. Switching to ${TARGET_CHAIN_NAME}...`,
+      variant: "loading",
+    });
 
     try {
       await switchChainAsync({ chainId: TARGET_CHAIN.id });
-      onStatusChange?.(`Connected to ${TARGET_CHAIN_NAME}.`);
+      onStatusChange?.({
+        message: `Connected to ${TARGET_CHAIN_NAME}.`,
+        variant: "success",
+      });
       hasPromptedChainSwitchRef.current = false;
       return true;
     } catch (error) {
-      onStatusChange?.(getSwitchChainErrorMessage(error));
+      onStatusChange?.({
+        message: getSwitchChainErrorMessage(error),
+        variant: "error",
+      });
       return false;
     }
   }, [chainId, getSwitchChainErrorMessage, isConnected, onStatusChange, switchChainAsync]);
@@ -200,20 +211,34 @@ export function useWalletSession(options: UseWalletSessionOptions = {}) {
   }, [ensureSupportedChain]);
 
   useAccountEffect({
-    onConnect({ address: connectedWalletAddress }) {
+    onConnect({ address: connectedWalletAddress, isReconnected }) {
       if (!connectedWalletAddress) {
         return;
       }
 
       setDisplayAddress(connectedWalletAddress);
       window.localStorage.setItem(LAST_WALLET_ADDRESS_KEY, connectedWalletAddress);
-      onStatusChange?.(`Wallet connected: ${truncateAddress(connectedWalletAddress)}`);
+
+      if (isReconnected) {
+        return;
+      }
+
+      const walletConnectedMessage = `Wallet connected: ${truncateAddress(connectedWalletAddress)}`;
+      if (onWalletConnected) {
+        onWalletConnected(walletConnectedMessage);
+        return;
+      }
+
+      onStatusChange?.({
+        message: walletConnectedMessage,
+        variant: "success",
+      });
     },
     onDisconnect() {
       setIsAccountMenuOpen(false);
       setDisplayAddress("");
       window.localStorage.removeItem(LAST_WALLET_ADDRESS_KEY);
-      onStatusChange?.("");
+      onStatusChange?.(null);
     },
   });
 

@@ -4,7 +4,7 @@ export type PassportLocale = "zh" | "en";
 
 const PASSPORT_LOCALE_KEY = "passport.locale";
 const PASSPORT_LOCALE_EVENT = "passport-locale-change";
-const DEFAULT_LOCALE: PassportLocale = "zh";
+const DEFAULT_LOCALE: PassportLocale = "en";
 
 const isPassportLocale = (value: string | null): value is PassportLocale =>
   value === "zh" || value === "en";

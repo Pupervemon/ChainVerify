@@ -50,6 +50,9 @@ export const getPassportIssueContextQueryKey = (
     stampTypeId.toString(),
   ] as const;
 
+export const getPassportIssueContextQueryPrefix = () =>
+  ["passport", TARGET_CHAIN_ID, "issue-context"] as const;
+
 export const getPassportRevokeContextQueryKey = (address: string, stampId: bigint) =>
   [
     "passport",

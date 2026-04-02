@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePublicClient } from "wagmi";
+import { TARGET_CHAIN_ID } from "../../../config/network";
 
 import {
   ASSET_PASSPORT_ABI,
@@ -24,7 +25,7 @@ type UsePassportTrustedFactoryListResult = {
 
 export function usePassportTrustedFactoryList(): UsePassportTrustedFactoryListResult {
   const { t } = usePassportLocale();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: TARGET_CHAIN_ID });
   const isConfigured = isPassportAddress(ASSET_PASSPORT_ADDRESS);
   const [error, setError] = useState("");
   const [factories, setFactories] = useState<PassportTrustedFactoryListItem[]>([]);
@@ -72,7 +73,7 @@ export function usePassportTrustedFactoryList(): UsePassportTrustedFactoryListRe
         normalizePassportContractError(loadError, {
           contractAddress: ASSET_PASSPORT_ADDRESS,
           contractName: "AssetPassport",
-          fallback: t("加载可信工厂列表失败。", "Failed to load trusted factory list."),
+          fallback: t("加载可信工厂列表失败�?, "Failed to load trusted factory list."),
           t,
         }),
       );
@@ -93,3 +94,4 @@ export function usePassportTrustedFactoryList(): UsePassportTrustedFactoryListRe
     refreshFactoryList: loadFactoryList,
   };
 }
+

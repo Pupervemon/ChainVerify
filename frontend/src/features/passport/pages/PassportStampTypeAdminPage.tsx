@@ -16,6 +16,21 @@ type PassportStampTypeAdminPageProps = {
   targetChainName: string;
 };
 
+const hasMeaningfulStampTypeConfig = (config: {
+  active: boolean;
+  code: string;
+  name: string;
+  schemaCID: string;
+  singleton: boolean;
+}) =>
+  Boolean(
+    config.code.trim() ||
+      config.name.trim() ||
+      config.schemaCID.trim() ||
+      config.active ||
+      config.singleton,
+  );
+
 export default function PassportStampTypeAdminPage(props: PassportStampTypeAdminPageProps) {
   const {
     connectedAddress,
@@ -36,6 +51,7 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
     availableStampTypes,
     canManageStampType,
     chronicleOwner,
+    clearStampTypeContext,
     currentConfig,
     error,
     isConfigured,
@@ -44,6 +60,7 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
     isLoadingStampType,
     isSubmitting,
     isStampTypeAdmin,
+    loadedStampTypeId,
     loadAvailableStampTypes,
     loadStampTypeContext,
     statusMessage,
@@ -60,6 +77,22 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
     [stampTypeId],
   );
   const trimmedSchemaCID = schemaCID.trim();
+  const hasLoadedCurrentStampType =
+    parsedStampTypeId !== null && loadedStampTypeId === parsedStampTypeId;
+  const hasSelectedTypeOnChain =
+    parsedStampTypeId !== null &&
+    availableStampTypes.some((typeOption) => typeOption.stampTypeId === parsedStampTypeId);
+  const hasRenderableCurrentConfig =
+    currentConfig !== null &&
+    hasLoadedCurrentStampType &&
+    (hasSelectedTypeOnChain || hasMeaningfulStampTypeConfig(currentConfig));
+  const canSubmitStampType =
+    parsedStampTypeId !== null &&
+    hasLoadedCurrentStampType &&
+    canManageStampType &&
+    !isLoadingStampType &&
+    !isSubmitting;
+
   const configuredTypesEmptyState = useMemo(() => {
     if (isLoadingAvailableStampTypes || availableStampTypes.length > 0) {
       return "";
@@ -67,43 +100,41 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
 
     if (!isConfigured) {
       return t(
-        "当前前端还没有完整配置 Passport 合约地址，因此无法读取 ChronicleStamp 上已经存在的印章类型。",
+        "The frontend does not have a complete Passport contract configuration yet, so it cannot read configured stamp types from ChronicleStamp.",
         "The frontend does not have a complete Passport contract configuration yet, so it cannot read configured stamp types from ChronicleStamp.",
       );
     }
 
-    if (isConnected && !hasCorrectChain) {
-      return t(
-        `当前钱包网络是 ${currentChainName}，目标网络是 ${targetChainName}。请先切换到目标网络，再查看当前链上的印章类型列表。`,
-        `Your wallet is connected to ${currentChainName}, but the target network is ${targetChainName}. Switch networks before checking the configured stamp type list.`,
-      );
-    }
-
     return t(
-      "当前链上还没有任何 StampTypeConfigured 记录。先在左侧填好一个类型并提交，成功后这里会自动出现列表。",
-      "No StampTypeConfigured records were found on the current chain. Configure a stamp type from the form on the left, and it will then appear here automatically.",
+      "No StampTypeConfigured records were found on the target chain. Configure a stamp type from the form on the left, and it will then appear here automatically.",
+      "No StampTypeConfigured records were found on the target chain. Configure a stamp type from the form on the left, and it will then appear here automatically.",
     );
-  }, [
-    availableStampTypes.length,
-    currentChainName,
-    hasCorrectChain,
-    isConfigured,
-    isConnected,
-    isLoadingAvailableStampTypes,
-    t,
-    targetChainName,
-  ]);
+  }, [availableStampTypes.length, isConfigured, isLoadingAvailableStampTypes, t]);
 
   useEffect(() => {
+    clearStampTypeContext();
+
     if (parsedStampTypeId === null) {
       return;
     }
 
     void loadStampTypeContext(parsedStampTypeId);
-  }, [loadStampTypeContext, parsedStampTypeId]);
+  }, [clearStampTypeContext, loadStampTypeContext, parsedStampTypeId]);
 
   useEffect(() => {
-    if (!currentConfig) {
+    if (parsedStampTypeId !== null && hasLoadedCurrentStampType) {
+      return;
+    }
+
+    setCode("");
+    setName("");
+    setSchemaCID("");
+    setActive(true);
+    setSingleton(false);
+  }, [hasLoadedCurrentStampType, parsedStampTypeId]);
+
+  useEffect(() => {
+    if (!currentConfig || !hasRenderableCurrentConfig) {
       return;
     }
 
@@ -112,7 +143,7 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
     setSchemaCID(currentConfig.schemaCID);
     setActive(currentConfig.active);
     setSingleton(currentConfig.singleton);
-  }, [currentConfig]);
+  }, [currentConfig, hasRenderableCurrentConfig]);
 
   const isChronicleOwner =
     Boolean(connectedAddress) &&
@@ -126,16 +157,16 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
           <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
             <div className="space-y-4">
               <span className="inline-flex rounded-full bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-sky-600 shadow-sm">
-                {t("印章类型管理", "Stamp Type Admin")}
+                {t("Stamp Type Admin", "Stamp Type Admin")}
               </span>
               <div className="space-y-3">
                 <h1 className="text-5xl font-black tracking-[-0.04em] text-slate-950">
-                  {t("配置履历印章类型。", "Configure chronicle stamp types.")}
+                  {t("Configure chronicle stamp types.", "Configure chronicle stamp types.")}
                 </h1>
                 <p className="max-w-2xl text-base font-medium text-slate-600">
                   {t(
-                    "这个页面调用 `ChronicleStamp.configureStampType(...)`，面向 ChronicleStamp owner 或印章类型管理员。",
-                    "This page calls `ChronicleStamp.configureStampType(...)` and is intended for the ChronicleStamp owner or stamp type admins.",
+                    "This page calls ChronicleStamp.configureStampType(...) and is intended for the ChronicleStamp owner or stamp type admins.",
+                    "This page calls ChronicleStamp.configureStampType(...) and is intended for the ChronicleStamp owner or stamp type admins.",
                   )}
                 </p>
               </div>
@@ -143,28 +174,30 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
 
             <div className="glass-card space-y-4 p-6">
               <div className="space-y-1">
-                <p className="meta-label">{t("权限快照", "Authority Snapshot")}</p>
+                <p className="meta-label">{t("Authority Snapshot", "Authority Snapshot")}</p>
                 <h2 className="text-2xl font-black tracking-tight text-slate-900">
-                  {t("Chronicle 所有权", "Chronicle Ownership")}
+                  {t("Chronicle Ownership", "Chronicle Ownership")}
                 </h2>
               </div>
               <div className="space-y-3">
                 <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4">
                   <p className="meta-label">ChronicleStamp</p>
                   <p className="mt-2 break-all font-mono text-sm text-slate-700">
-                    {CHRONICLE_STAMP_ADDRESS || t("未配置", "Not configured")}
+                    {CHRONICLE_STAMP_ADDRESS || t("Not configured", "Not configured")}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4">
-                  <p className="meta-label">{t("目标网络 / 当前网络", "Target / Current Network")}</p>
+                  <p className="meta-label">{t("Target / Current Network", "Target / Current Network")}</p>
                   <p className="mt-2 text-sm font-semibold text-slate-800">
-                    {targetChainName} / {isConnected ? currentChainName : t("未连接", "Disconnected")}
+                    {targetChainName} / {isConnected ? currentChainName : t("Disconnected", "Disconnected")}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4">
                   <p className="meta-label">Owner</p>
                   <p className="mt-2 break-all font-mono text-sm text-slate-700">
-                    {isLoadingChronicleOwner ? t("加载中...", "Loading...") : chronicleOwner || t("不可用", "Unavailable")}
+                    {isLoadingChronicleOwner
+                      ? t("Loading...", "Loading...")
+                      : chronicleOwner || t("Unavailable", "Unavailable")}
                   </p>
                 </div>
                 <div
@@ -176,10 +209,10 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
                 >
                   {canManageStampType ? <ShieldCheck size={14} /> : <ShieldX size={14} />}
                   {isChronicleOwner
-                    ? t("Chronicle 所有者", "Chronicle Owner")
+                    ? t("Chronicle Owner", "Chronicle Owner")
                     : isStampTypeAdmin
-                      ? t("印章类型管理员", "Stamp Type Admin")
-                      : t("需要权限", "Permission Required")}
+                      ? t("Stamp Type Admin", "Stamp Type Admin")
+                      : t("Permission Required", "Permission Required")}
                 </div>
               </div>
             </div>
@@ -189,9 +222,9 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
             <div className="space-y-2">
-              <p className="meta-label">{t("印章类型配置", "Stamp Type Config")}</p>
+              <p className="meta-label">{t("Stamp Type Config", "Stamp Type Config")}</p>
               <h2 className="text-3xl font-black tracking-tight text-slate-900">
-                {t("配置印章类型", "Configure Stamp Type")}
+                {t("Configure Stamp Type", "Configure Stamp Type")}
               </h2>
             </div>
 
@@ -199,7 +232,7 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
               <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
                 <div className="flex items-center justify-between gap-3">
                   <label className="meta-label" htmlFor="stamp-type-id">
-                    {t("印章类型 ID", "Stamp Type ID")}
+                    {t("Stamp Type ID", "Stamp Type ID")}
                   </label>
                   <button
                     type="button"
@@ -208,8 +241,8 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
                     className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 transition-colors hover:text-sky-600 disabled:opacity-50"
                   >
                     {isLoadingAvailableStampTypes
-                      ? t("加载中...", "Loading...")
-                      : t("刷新列表", "Refresh List")}
+                      ? t("Loading...", "Loading...")
+                      : t("Refresh List", "Refresh List")}
                   </button>
                 </div>
                 <div className="mt-3 flex gap-3">
@@ -233,7 +266,7 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
                     className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black uppercase tracking-[0.18em] text-slate-700 transition-all hover:border-sky-200 hover:text-sky-600 disabled:opacity-50"
                   >
                     <RefreshCw size={16} className={isLoadingStampType ? "animate-spin" : ""} />
-                    {t("加载", "Load")}
+                    {t("Load", "Load")}
                   </button>
                 </div>
               </div>
@@ -254,14 +287,14 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
                 </div>
                 <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
                   <label className="meta-label" htmlFor="stamp-type-name">
-                    {t("名称", "Name")}
+                    {t("Name", "Name")}
                   </label>
                   <input
                     id="stamp-type-name"
                     type="text"
                     value={name}
                     onChange={(event) => setName(event.target.value)}
-                    placeholder={t("官方认证", "Official Authentication")}
+                    placeholder={t("Official Authentication", "Official Authentication")}
                     className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-all focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
                   />
                 </div>
@@ -270,9 +303,9 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
               <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="meta-label">{t("Schema 配置", "Schema Config")}</p>
+                    <p className="meta-label">{t("Schema Config", "Schema Config")}</p>
                     <h3 className="mt-2 text-lg font-black tracking-tight text-slate-900">
-                      {t("绑定 Schema CID", "Bind Schema CID")}
+                      {t("Bind Schema CID", "Bind Schema CID")}
                     </h3>
                   </div>
                   <div className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-sky-600 shadow-sm">
@@ -281,8 +314,8 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
                 </div>
                 <p className="mt-3 text-sm font-medium leading-relaxed text-slate-600">
                   {t(
-                    "这里填写该印章类型对应的数据结构说明地址，推荐使用 `ipfs://...` 或 `ar://...`。链上只保存这个 CID，具体 schema 文件仍放在链下存储。",
-                    "Enter the data-schema reference for this stamp type here, typically `ipfs://...` or `ar://...`. Only this CID is stored on-chain while the schema document stays off-chain.",
+                    "Enter the data-schema reference for this stamp type here, typically ipfs://... or ar://.... Only this CID is stored on-chain while the schema document stays off-chain.",
+                    "Enter the data-schema reference for this stamp type here, typically ipfs://... or ar://.... Only this CID is stored on-chain while the schema document stays off-chain.",
                   )}
                 </p>
                 <textarea
@@ -296,28 +329,28 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
                 <div className="mt-4 flex flex-wrap gap-3">
                   <button
                     type="button"
-                    onClick={() => setSchemaCID(currentConfig?.schemaCID || "")}
+                    onClick={() => setSchemaCID(hasRenderableCurrentConfig ? currentConfig?.schemaCID || "" : "")}
                     className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition-all hover:border-sky-200 hover:text-sky-600"
                   >
                     <RefreshCw size={14} />
-                    {t("使用已加载值", "Use Loaded Value")}
+                    {t("Use Loaded Value", "Use Loaded Value")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setSchemaCID("")}
                     className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition-all hover:border-slate-300 hover:text-slate-900"
                   >
-                    {t("清空", "Clear")}
+                    {t("Clear", "Clear")}
                   </button>
                 </div>
                 <div className="mt-4 rounded-2xl border border-slate-100 bg-white px-5 py-4">
-                  <p className="meta-label">{t("当前待提交的 Schema CID", "Schema CID To Submit")}</p>
+                  <p className="meta-label">{t("Schema CID To Submit", "Schema CID To Submit")}</p>
                   <div className="mt-3 flex items-start gap-3">
                     <div className="mt-0.5 text-sky-600">
                       <Link2 size={16} />
                     </div>
                     <p className="min-w-0 break-all font-mono text-sm text-slate-700">
-                      {trimmedSchemaCID || t("未填写，提交后会写入空字符串。", "Empty. Submitting now will write an empty string.")}
+                      {trimmedSchemaCID || t("Empty. Submitting now will write an empty string.", "Empty. Submitting now will write an empty string.")}
                     </p>
                   </div>
                 </div>
@@ -325,7 +358,7 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
                   accent="sky"
                   defaultText={`{\n  "$schema": "https://json-schema.org/draft/2020-12/schema",\n  "title": "",\n  "type": "object",\n  "properties": {},\n  "required": []\n}`}
                   description={t(
-                    "为印章类型的数据结构说明生成 CID，推荐直接上传 JSON Schema 文档。",
+                    "Generate the CID for the stamp type schema definition. A JSON Schema document is recommended here.",
                     "Generate the CID for the stamp type schema definition. A JSON Schema document is recommended here.",
                   )}
                   fieldKey="stamp_type_schema"
@@ -343,7 +376,7 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
                     onChange={(event) => setActive(event.target.checked)}
                     className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                   />
-                  {t("启用", "Active")}
+                  {t("Active", "Active")}
                 </label>
                 <label className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4 text-sm font-semibold text-slate-700">
                   <input
@@ -352,7 +385,7 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
                     onChange={(event) => setSingleton(event.target.checked)}
                     className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                   />
-                  {t("单例", "Singleton")}
+                  {t("Singleton", "Singleton")}
                 </label>
               </div>
 
@@ -370,11 +403,11 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
                     singleton,
                   });
                 }}
-                disabled={parsedStampTypeId === null || !canManageStampType || isSubmitting}
+                disabled={!canSubmitStampType}
                 className="mt-2 inline-flex items-center justify-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-sky-700 transition-all hover:bg-sky-100 disabled:opacity-50"
               >
                 <Layers3 size={18} />
-                {isSubmitting ? t("提交中...", "Submitting...") : t("配置印章类型", "Configure Stamp Type")}
+                {isSubmitting ? t("Submitting...", "Submitting...") : t("Configure Stamp Type", "Configure Stamp Type")}
               </button>
             </div>
           </div>
@@ -383,9 +416,9 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
             <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="meta-label">{t("链上列表", "On-chain List")}</p>
+                  <p className="meta-label">{t("On-chain List", "On-chain List")}</p>
                   <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                    {t("已配置印章类型", "Configured Stamp Types")}
+                    {t("Configured Stamp Types", "Configured Stamp Types")}
                   </h2>
                 </div>
                 <button
@@ -397,7 +430,7 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
                     size={16}
                     className={isLoadingAvailableStampTypes ? "animate-spin" : ""}
                   />
-                  {t("刷新", "Refresh")}
+                  {t("Refresh", "Refresh")}
                 </button>
               </div>
               <div className="mt-6 space-y-3">
@@ -412,14 +445,14 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
                         className={`w-full rounded-2xl border px-5 py-4 text-left transition-all ${
                           isSelected
                             ? "border-sky-200 bg-sky-50"
-                            : "border-slate-100 bg-slate-50/60 hover:border-slate-200 hover:bg-white"
+                            : "border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div>
                             <p className="text-sm font-black tracking-tight text-slate-900">
-                              {`#${typeOption.stampTypeId.toString()} · ${
-                                typeOption.name || t("未命名", "Unnamed")
+                              {`#${typeOption.stampTypeId.toString()} / ${
+                                typeOption.name || t("Unnamed", "Unnamed")
                               }`}
                             </p>
                             <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -429,13 +462,13 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
                           <div className="text-right text-xs font-semibold text-slate-600">
                             <div>
                               {typeOption.active
-                                ? t("启用", "Active")
-                                : t("停用", "Inactive")}
+                                ? t("Active", "Active")
+                                : t("Inactive", "Inactive")}
                             </div>
                             <div className="mt-1">
                               {typeOption.singleton
-                                ? t("单例", "Singleton")
-                                : t("可重复", "Repeatable")}
+                                ? t("Singleton", "Singleton")
+                                : t("Repeatable", "Repeatable")}
                             </div>
                           </div>
                         </div>
@@ -461,36 +494,43 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
             </div>
 
             <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-              <p className="meta-label">{t("当前配置", "Current Config")}</p>
+              <p className="meta-label">{t("Current Config", "Current Config")}</p>
               <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                {t("已加载印章类型", "Loaded Stamp Type")}
+                {t("Loaded Stamp Type", "Loaded Stamp Type")}
               </h2>
               <div className="mt-6 space-y-4">
-                {currentConfig ? (
+                {hasRenderableCurrentConfig ? (
                   <>
                     <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                      <p className="meta-label">{t("编码 / 名称", "Code / Name")}</p>
+                      <p className="meta-label">{t("Code / Name", "Code / Name")}</p>
                       <p className="mt-2 font-semibold text-slate-900">
-                        {currentConfig.code || "NO_CODE"} / {currentConfig.name || t("未命名", "Unnamed")}
+                        {currentConfig?.code || "NO_CODE"} / {currentConfig?.name || t("Unnamed", "Unnamed")}
                       </p>
                     </div>
                     <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
-                      <p className="meta-label">{t("状态", "State")}</p>
+                      <p className="meta-label">{t("State", "State")}</p>
                       <p className="mt-2 text-sm font-semibold text-slate-700">
-                        {currentConfig.active ? t("启用", "Active") : t("停用", "Inactive")} /{" "}
-                        {currentConfig.singleton ? t("单例", "Singleton") : t("可重复", "Repeatable")}
+                        {currentConfig?.active ? t("Active", "Active") : t("Inactive", "Inactive")} /{" "}
+                        {currentConfig?.singleton ? t("Singleton", "Singleton") : t("Repeatable", "Repeatable")}
                       </p>
                     </div>
                     <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4">
                       <p className="meta-label">Schema CID</p>
                       <p className="mt-2 break-all font-mono text-sm text-slate-700">
-                        {currentConfig.schemaCID || t("未设置", "Not set")}
+                        {currentConfig?.schemaCID || t("Not set", "Not set")}
                       </p>
                     </div>
                   </>
+                ) : parsedStampTypeId !== null && hasLoadedCurrentStampType ? (
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4 text-sm font-semibold text-slate-600">
+                    {t(
+                      "This stamp type does not have an effective on-chain config yet. You can fill the form and submit the first version now.",
+                      "This stamp type does not have an effective on-chain config yet. You can fill the form and submit the first version now.",
+                    )}
+                  </div>
                 ) : (
                   <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-5 py-4 text-sm font-semibold text-slate-600">
-                    {t("先加载一个印章类型 ID，再查看并修改当前配置。", "Load a stamp type ID to inspect the current config before updating it.")}
+                    {t("Load a stamp type ID to inspect the current config before updating it.", "Load a stamp type ID to inspect the current config before updating it.")}
                   </div>
                 )}
                 {statusMessage ? (
@@ -507,26 +547,26 @@ export default function PassportStampTypeAdminPage(props: PassportStampTypeAdmin
             </div>
 
             <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-              <p className="meta-label">{t("业务说明", "Operational Notes")}</p>
+              <p className="meta-label">{t("Operational Notes", "Operational Notes")}</p>
               <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                {t("管理规则", "Management Rules")}
+                {t("Management Rules", "Management Rules")}
               </h2>
               <div className="mt-6 space-y-4">
                 <div className="rounded-2xl bg-sky-50 px-5 py-5">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-sky-600 shadow-sm">
                     <Tags size={20} />
                   </div>
-                  <p className="mt-4 font-black text-slate-900">{t("权限模型", "Permission Model")}</p>
+                  <p className="mt-4 font-black text-slate-900">{t("Permission Model", "Permission Model")}</p>
                   <p className="mt-2 text-sm font-medium text-slate-600">
                     {t(
-                      "`ChronicleStamp.owner` 可以配置任意印章类型；授权的类型管理员只能管理自己负责的那一种类型。",
-                      "`ChronicleStamp.owner` can configure any stamp type. Authorized stamp type admins can configure the specific type they manage.",
+                      "ChronicleStamp.owner can configure any stamp type. Authorized stamp type admins can configure the specific type they manage.",
+                      "ChronicleStamp.owner can configure any stamp type. Authorized stamp type admins can configure the specific type they manage.",
                     )}
                   </p>
                 </div>
                 {!isConfigured ? (
                   <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-700">
-                    {t("前端环境中尚未配置 Passport 合约。", "Passport contracts are not configured in the frontend environment.")}
+                    {t("Passport contracts are not configured in the frontend environment.", "Passport contracts are not configured in the frontend environment.")}
                   </div>
                 ) : null}
               </div>

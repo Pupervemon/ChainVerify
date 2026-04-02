@@ -1,7 +1,8 @@
-import { useQueryClient } from "@tanstack/react-query";
+﻿import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { decodeEventLog } from "viem";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { TARGET_CHAIN_ID } from "../../../config/network";
 
 import {
   arePassportContractsConfigured,
@@ -66,7 +67,7 @@ export function usePassportRevokeStamp(
     isConnected,
   } = options;
   const queryClient = useQueryClient();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: TARGET_CHAIN_ID });
   const isConfigured = arePassportContractsConfigured();
   const cachedContext =
     address && initialStampId !== null && isConfigured
@@ -157,7 +158,7 @@ export function usePassportRevokeStamp(
         setError(
           loadError instanceof Error
             ? loadError.message
-            : t("加载印章撤销上下文失败。", "Failed to load stamp revoke context."),
+            : t("鍔犺浇鍗扮珷鎾ら攢涓婁笅鏂囧け璐ャ€?, "Failed to load stamp revoke context."),
         );
       } finally {
         setIsLoadingContext(false);
@@ -186,17 +187,17 @@ export function usePassportRevokeStamp(
   const submitRevokeStamp = useCallback(
     async (stampId: bigint, reasonCID: string) => {
       if (!isConnected) {
-        setError(t("请先连接钱包再提交。", "Connect a wallet before submitting."));
+        setError(t("璇峰厛杩炴帴閽卞寘鍐嶆彁浜ゃ€?, "Connect a wallet before submitting."));
         return;
       }
 
       if (!isConfigured) {
-        setError(t("资产护照合约尚未配置。", "Passport contracts are not configured."));
+        setError(t("璧勪骇鎶ょ収鍚堢害灏氭湭閰嶇疆銆?, "Passport contracts are not configured."));
         return;
       }
 
       if (!reasonCID.trim()) {
-        setError(t("必须填写原因 CID。", "Reason CID is required."));
+        setError(t("蹇呴』濉啓鍘熷洜 CID銆?, "Reason CID is required."));
         return;
       }
 
@@ -206,7 +207,7 @@ export function usePassportRevokeStamp(
 
       setError("");
       setRevokedStampId(null);
-      setStatusMessage(t("正在提交印章撤销交易...", "Submitting stamp revocation transaction..."));
+      setStatusMessage(t("姝ｅ湪鎻愪氦鍗扮珷鎾ら攢浜ゆ槗...", "Submitting stamp revocation transaction..."));
 
       try {
         await writeContractAsync({
@@ -220,7 +221,7 @@ export function usePassportRevokeStamp(
         setError(
           submitError instanceof Error
             ? submitError.message
-            : t("提交印章撤销交易失败。", "Failed to submit stamp revocation transaction."),
+            : t("鎻愪氦鍗扮珷鎾ら攢浜ゆ槗澶辫触銆?, "Failed to submit stamp revocation transaction."),
         );
       }
     },
@@ -254,8 +255,8 @@ export function usePassportRevokeStamp(
     setRevokedStampId(parsedStampId);
     setStatusMessage(
       parsedStampId !== null
-        ? t(`印章 #${parsedStampId.toString()} 撤销成功。`, `Stamp #${parsedStampId.toString()} revoked successfully.`)
-        : t("印章撤销交易已确认。", "Stamp revocation confirmed."),
+        ? t(`鍗扮珷 #${parsedStampId.toString()} 鎾ら攢鎴愬姛銆俙, `Stamp #${parsedStampId.toString()} revoked successfully.`)
+        : t("鍗扮珷鎾ら攢浜ゆ槗宸茬‘璁ゃ€?, "Stamp revocation confirmed."),
     );
   }, [isConfirmed, receipt]);
 
@@ -281,3 +282,5 @@ export function usePassportRevokeStamp(
     submitRevokeStamp,
   };
 }
+
+

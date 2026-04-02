@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
 import {
@@ -8,8 +9,10 @@ import {
   PASSPORT_AUTHORITY_ABI,
   PASSPORT_AUTHORITY_ADDRESS,
 } from "../../../config/passport";
+import { TARGET_CHAIN_ID } from "../../../config/network";
 import { usePassportLocale } from "../i18n";
 import { normalizePassportContractError } from "../utils/contractErrors";
+import { getPassportIssueContextQueryPrefix } from "../utils/passportReadCache";
 
 type UsePassportStampTypeAdminOptions = {
   address?: string;
@@ -34,6 +37,7 @@ type UsePassportStampTypeAdminResult = {
   availableStampTypes: AvailableStampType[];
   canManageStampType: boolean;
   chronicleOwner: string;
+  clearStampTypeContext: () => void;
   currentConfig: StampTypeConfig | null;
   error: string;
   isConfigured: boolean;
@@ -42,6 +46,7 @@ type UsePassportStampTypeAdminResult = {
   isLoadingStampType: boolean;
   isSubmitting: boolean;
   isStampTypeAdmin: boolean;
+  loadedStampTypeId: bigint | null;
   loadAvailableStampTypes: () => Promise<void>;
   loadStampTypeContext: (stampTypeId: bigint) => Promise<void>;
   statusMessage: string;
@@ -53,8 +58,10 @@ export function usePassportStampTypeAdmin(
 ): UsePassportStampTypeAdminResult {
   const { t } = usePassportLocale();
   const { address, ensureSupportedChain, hasCorrectChain, isConnected } = options;
-  const publicClient = usePublicClient();
+  const queryClient = useQueryClient();
+  const publicClient = usePublicClient({ chainId: TARGET_CHAIN_ID });
   const isConfigured = arePassportContractsConfigured();
+  const stampTypeContextRequestRef = useRef(0);
   const [availableStampTypes, setAvailableStampTypes] = useState<AvailableStampType[]>([]);
   const [chronicleOwner, setChronicleOwner] = useState("");
   const [currentConfig, setCurrentConfig] = useState<StampTypeConfig | null>(null);
@@ -64,6 +71,7 @@ export function usePassportStampTypeAdmin(
   const [isLoadingStampType, setIsLoadingStampType] = useState(false);
   const [isStampTypeAdmin, setIsStampTypeAdmin] = useState(false);
   const [lastConfiguredStampTypeId, setLastConfiguredStampTypeId] = useState<bigint | null>(null);
+  const [loadedStampTypeId, setLoadedStampTypeId] = useState<bigint | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
 
   const { writeContractAsync, data: txHash, isPending } = useWriteContract();
@@ -80,6 +88,16 @@ export function usePassportStampTypeAdmin(
     Boolean(chronicleOwner) &&
     address.toLowerCase() === chronicleOwner.toLowerCase();
   const canManageStampType = isChronicleOwner || isStampTypeAdmin;
+
+  const clearStampTypeContext = useCallback(() => {
+    stampTypeContextRequestRef.current += 1;
+    setCurrentConfig(null);
+    setError("");
+    setIsStampTypeAdmin(false);
+    setLoadedStampTypeId(null);
+    setIsLoadingStampType(false);
+    setStatusMessage("");
+  }, []);
 
   const loadAvailableStampTypes = useCallback(async () => {
     if (!publicClient || !isConfigured) {
@@ -136,7 +154,7 @@ export function usePassportStampTypeAdmin(
         normalizePassportContractError(loadError, {
           contractAddress: CHRONICLE_STAMP_ADDRESS,
           contractName: "ChronicleStamp",
-          fallback: t("加载已配置印章类型失败。", "Failed to load configured stamp types."),
+          fallback: t("Failed to load configured stamp types.", "Failed to load configured stamp types."),
           t,
         }),
       );
@@ -168,7 +186,7 @@ export function usePassportStampTypeAdmin(
         normalizePassportContractError(loadError, {
           contractAddress: CHRONICLE_STAMP_ADDRESS,
           contractName: "ChronicleStamp",
-          fallback: t("加载 ChronicleStamp owner 失败。", "Failed to load ChronicleStamp owner."),
+          fallback: t("Failed to load ChronicleStamp owner.", "Failed to load ChronicleStamp owner."),
           t,
         }),
       );
@@ -180,11 +198,16 @@ export function usePassportStampTypeAdmin(
   const loadStampTypeContext = useCallback(
     async (stampTypeId: bigint) => {
       if (!publicClient || !isConfigured) {
-        setCurrentConfig(null);
-        setIsStampTypeAdmin(false);
+        clearStampTypeContext();
         return;
       }
 
+      const requestId = stampTypeContextRequestRef.current + 1;
+      stampTypeContextRequestRef.current = requestId;
+
+      setCurrentConfig(null);
+      setIsStampTypeAdmin(false);
+      setLoadedStampTypeId(null);
       setIsLoadingStampType(true);
       setError("");
 
@@ -206,40 +229,52 @@ export function usePassportStampTypeAdmin(
             : Promise.resolve(false),
         ]);
 
+        if (stampTypeContextRequestRef.current !== requestId) {
+          return;
+        }
+
         setCurrentConfig(config);
         setIsStampTypeAdmin(adminFlag);
+        setLoadedStampTypeId(stampTypeId);
       } catch (loadError) {
+        if (stampTypeContextRequestRef.current !== requestId) {
+          return;
+        }
+
         setCurrentConfig(null);
         setIsStampTypeAdmin(false);
+        setLoadedStampTypeId(null);
         setError(
           normalizePassportContractError(loadError, {
             contractAddress: CHRONICLE_STAMP_ADDRESS,
             contractName: "ChronicleStamp",
-            fallback: t("加载印章类型上下文失败。", "Failed to load stamp type context."),
+            fallback: t("Failed to load stamp type context.", "Failed to load stamp type context."),
             t,
           }),
         );
       } finally {
-        setIsLoadingStampType(false);
+        if (stampTypeContextRequestRef.current === requestId) {
+          setIsLoadingStampType(false);
+        }
       }
     },
-    [address, isConfigured, publicClient, t],
+    [address, clearStampTypeContext, isConfigured, publicClient, t],
   );
 
   const submitConfigureStampType = useCallback(
     async (stampTypeId: bigint, config: StampTypeConfig) => {
       if (!isConnected) {
-        setError(t("请先连接钱包再提交。", "Connect a wallet before submitting."));
+        setError(t("Connect a wallet before submitting.", "Connect a wallet before submitting."));
         return;
       }
 
       if (!isConfigured) {
-        setError(t("资产护照合约尚未配置。", "Passport contracts are not configured."));
+        setError(t("Passport contracts are not configured.", "Passport contracts are not configured."));
         return;
       }
 
       if (!config.code.trim() || !config.name.trim()) {
-        setError(t("印章类型编码和名称不能为空。", "Stamp type code and name are required."));
+        setError(t("Stamp type code and name are required.", "Stamp type code and name are required."));
         return;
       }
 
@@ -248,7 +283,7 @@ export function usePassportStampTypeAdmin(
       }
 
       setError("");
-      setStatusMessage(t("正在提交印章类型配置交易...", "Submitting stamp type configuration transaction..."));
+      setStatusMessage(t("Submitting stamp type configuration transaction...", "Submitting stamp type configuration transaction..."));
       setLastConfiguredStampTypeId(stampTypeId);
 
       try {
@@ -273,13 +308,13 @@ export function usePassportStampTypeAdmin(
           submitError instanceof Error
             ? submitError.message
             : t(
-                "提交印章类型配置交易失败。",
+                "Failed to submit stamp type configuration transaction.",
                 "Failed to submit stamp type configuration transaction.",
               ),
         );
       }
     },
-    [ensureSupportedChain, hasCorrectChain, isConfigured, isConnected, writeContractAsync],
+    [ensureSupportedChain, hasCorrectChain, isConfigured, isConnected, t, writeContractAsync],
   );
 
   useEffect(() => {
@@ -297,13 +332,21 @@ export function usePassportStampTypeAdmin(
 
     setStatusMessage(
       t(
-        `印章类型 #${lastConfiguredStampTypeId.toString()} 配置成功。`,
+        `Stamp type #${lastConfiguredStampTypeId.toString()} configured successfully.`,
         `Stamp type #${lastConfiguredStampTypeId.toString()} configured successfully.`,
       ),
     );
+    queryClient.removeQueries({ queryKey: getPassportIssueContextQueryPrefix() });
     void loadAvailableStampTypes();
     void loadStampTypeContext(lastConfiguredStampTypeId);
-  }, [isConfirmed, lastConfiguredStampTypeId, loadAvailableStampTypes, loadStampTypeContext, t]);
+  }, [
+    isConfirmed,
+    lastConfiguredStampTypeId,
+    loadAvailableStampTypes,
+    loadStampTypeContext,
+    queryClient,
+    t,
+  ]);
 
   useEffect(() => {
     if (!isTxError || !txError) {
@@ -318,6 +361,7 @@ export function usePassportStampTypeAdmin(
     availableStampTypes,
     canManageStampType,
     chronicleOwner,
+    clearStampTypeContext,
     currentConfig,
     error,
     isConfigured,
@@ -326,6 +370,7 @@ export function usePassportStampTypeAdmin(
     isLoadingStampType,
     isSubmitting,
     isStampTypeAdmin,
+    loadedStampTypeId,
     loadAvailableStampTypes,
     loadStampTypeContext,
     statusMessage,
