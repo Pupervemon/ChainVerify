@@ -42,14 +42,10 @@ func main() {
 		log.Fatalf("init mysql failed: %v", err)
 	}
 
-	var proofRepository repository.ProofRepository = repository.NewMemoryProofRepository()
-	if db != nil {
-		log.Println("Using MySQL as proof repository")
-		proofRepository = repository.NewGormProofRepository(db)
-	}
+	log.Println("Using MySQL as proof repository")
 
 	pinataService := service.NewPinataService(cfg)
-	proofService := service.NewProofService(proofRepository)
+	proofService := service.NewProofService(repository.NewGormProofRepository(db))
 
 	// 可优雅退出的 context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -78,8 +74,11 @@ func main() {
 	engine := router.New(cfg, h)
 
 	srv := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: engine,
+		Addr:              ":" + cfg.Port,
+		Handler:           engine,
+		ReadTimeout:       cfg.ReadTimeout,
+		ReadHeaderTimeout: cfg.ReadTimeout,
+		WriteTimeout:      cfg.WriteTimeout,
 	}
 
 	// 在独立协程中启动 Web 服务器

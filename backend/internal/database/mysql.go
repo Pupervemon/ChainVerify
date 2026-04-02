@@ -1,6 +1,8 @@
 package database
 
 import (
+	"errors"
+
 	"github.com/Pupervemon/ChainVerify/internal/config"
 	"github.com/Pupervemon/ChainVerify/internal/models"
 	"gorm.io/driver/mysql"
@@ -10,7 +12,7 @@ import (
 // NewMySQL 初始化 MySQL 数据库连接
 func NewMySQL(cfg config.Config) (*gorm.DB, error) {
 	if cfg.MySQLDSN == "" {
-		return nil, nil
+		return nil, errors.New("MYSQL_DSN is required")
 	}
 
 	db, err := gorm.Open(mysql.Open(cfg.MySQLDSN), &gorm.Config{})

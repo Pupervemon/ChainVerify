@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -17,6 +18,7 @@ type Config struct {
 	MySQLDSN          string
 	PinataJWT         string
 	PinataUploadURL   string
+	PinataTimeout     time.Duration
 	MaxUploadSize     int64
 	ReadTimeout       time.Duration
 	WriteTimeout      time.Duration
@@ -64,15 +66,47 @@ func Load() Config {
 		MySQLDSN:          os.Getenv("MYSQL_DSN"),
 		PinataJWT:         os.Getenv("PINATA_JWT"),
 		PinataUploadURL:   getEnv("PINATA_UPLOAD_URL", "https://api.pinata.cloud/pinning/pinFileToIPFS"),
+		PinataTimeout:     getEnvDuration("PINATA_TIMEOUT", 60*time.Second),
 		MaxUploadSize:     getEnvInt64("MAX_UPLOAD_SIZE", 32<<20),
 		ReadTimeout:       getEnvDuration("READ_TIMEOUT", 15*time.Second),
 		WriteTimeout:      getEnvDuration("WRITE_TIMEOUT", 30*time.Second),
-		AllowedOrigins:    []string{"http://localhost:3000", "http://localhost:5173"},
+		AllowedOrigins:    getEnvCSV("ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://localhost:5173"}),
 		EnableAutoMigrate: getEnvBool("ENABLE_AUTO_MIGRATE", true),
-		EthRPCURL:         getEnv("SEPOLIA_RPC_URL", "http://127.0.0.1:8545"),
+		EthRPCURL:         getEnvAny([]string{"ETH_RPC_URL", "SEPOLIA_RPC_URL"}, "http://127.0.0.1:8545"),
 		HardhatPrivateKey: getEnv("HARDHAT_PRIVATE_KEY", "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"),
 		ContractAddress:   os.Getenv("CONTRACT_ADDRESS"),
 	}
+}
+
+func getEnvAny(keys []string, fallback string) string {
+	for _, key := range keys {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+	}
+
+	return fallback
+}
+
+func getEnvCSV(key string, fallback []string) []string {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+
+	items := make([]string, 0)
+	for _, item := range strings.Split(value, ",") {
+		trimmed := strings.TrimSpace(item)
+		if trimmed != "" {
+			items = append(items, trimmed)
+		}
+	}
+
+	if len(items) == 0 {
+		return fallback
+	}
+
+	return items
 }
 
 func getEnv(key, fallback string) string {

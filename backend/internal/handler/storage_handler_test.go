@@ -90,7 +90,7 @@ func TestUploadIPFS_ProofSceneRejectsDuplicate(t *testing.T) {
 	require.NoError(t, err)
 
 	h := &Handler{
-		cfg:           config.Config{},
+		cfg:           config.Config{MaxUploadSize: 32 << 20},
 		pinataService: service.NewPinataService(config.Config{PinataJWT: "test-jwt", PinataUploadURL: pinataServer.URL}),
 		proofService:  proofService,
 	}
@@ -156,10 +156,32 @@ func TestUploadIPFS_InvalidMetadata(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "invalid metadata format")
 }
 
+func TestUploadIPFS_UsesConfiguredUploadLimit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	h := newTestHandlerWithConfig(
+		"http://127.0.0.1/unused",
+		config.Config{MaxUploadSize: 4},
+	)
+	req := newUploadRequest(t, "tiny.txt", []byte("12345"), "")
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = req
+
+	h.UploadIPFS(ctx)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(t, rec.Body.String(), "maximum allowed size is 4 bytes")
+}
+
 func newTestHandler(pinataUploadURL string) *Handler {
+	return newTestHandlerWithConfig(pinataUploadURL, config.Config{MaxUploadSize: 32 << 20})
+}
+
+func newTestHandlerWithConfig(pinataUploadURL string, cfg config.Config) *Handler {
 	repo := repository.NewMemoryProofRepository()
 	return &Handler{
-		cfg: config.Config{},
+		cfg: cfg,
 		pinataService: service.NewPinataService(config.Config{
 			PinataJWT:       "test-jwt",
 			PinataUploadURL: pinataUploadURL,

@@ -64,7 +64,7 @@ func (r *GormProofRepository) GetByFileHash(ctx context.Context, fileHash string
 
 	var proof models.Proof
 	if err := r.db.WithContext(ctx).
-		Where("LOWER(file_hash) IN ?", variants).
+		Where("file_hash IN ?", variants).
 		Order("proof_created_at DESC").
 		First(&proof).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

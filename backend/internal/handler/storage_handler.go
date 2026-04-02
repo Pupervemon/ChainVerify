@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"strings"
@@ -14,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const MaxUploadSize = 10 << 20
+const defaultMaxUploadSize = 32 << 20
 
 // UploadIPFS handles unified IPFS uploads and optionally checks duplicate proofs.
 // @Summary      上传文件到 IPFS
@@ -82,8 +83,9 @@ func (h *Handler) uploadToIPFS(c *gin.Context, checkDuplicate bool) {
 func (h *Handler) prepareIPFSUpload(
 	c *gin.Context,
 ) (*multipart.FileHeader, map[string]string, multipart.File, string, bool) {
-	if err := c.Request.ParseMultipartForm(MaxUploadSize); err != nil {
-		response.BadRequest(c, "file size exceeds limit", "maximum allowed size is 10MB")
+	maxUploadSize := h.maxUploadSize()
+	if err := c.Request.ParseMultipartForm(maxUploadSize); err != nil {
+		response.BadRequest(c, "file size exceeds limit", formatUploadSizeLimit(maxUploadSize))
 		return nil, nil, nil, "", false
 	}
 
@@ -93,8 +95,8 @@ func (h *Handler) prepareIPFSUpload(
 		return nil, nil, nil, "", false
 	}
 
-	if fileHeader.Size > MaxUploadSize {
-		response.BadRequest(c, "file too large", "maximum allowed size is 10MB")
+	if fileHeader.Size > maxUploadSize {
+		response.BadRequest(c, "file too large", formatUploadSizeLimit(maxUploadSize))
 		return nil, nil, nil, "", false
 	}
 
@@ -125,6 +127,24 @@ func (h *Handler) prepareIPFSUpload(
 	}
 
 	return fileHeader, customMetadata, file, fileHash, true
+}
+
+func (h *Handler) maxUploadSize() int64 {
+	if h.cfg.MaxUploadSize > 0 {
+		return h.cfg.MaxUploadSize
+	}
+
+	return defaultMaxUploadSize
+}
+
+func formatUploadSizeLimit(limit int64) string {
+	const mib = 1 << 20
+
+	if limit > 0 && limit%mib == 0 {
+		return fmt.Sprintf("maximum allowed size is %dMB", limit/mib)
+	}
+
+	return fmt.Sprintf("maximum allowed size is %d bytes", limit)
 }
 
 func resetUploadFile(file multipart.File) error {
