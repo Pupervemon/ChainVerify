@@ -1,8 +1,8 @@
-# Issuer Authorization 页面使用说明
+# Issuer Access 页面使用说明
 
 ## 1. 页面是做什么的
 
-`Issuer Authorization` 页面用于管理某个 `issuer address` 的发章授权。
+`Issuer Access` 页面用于管理某个 `issuer address` 的发章授权。
 
 这个页面只处理一件事：
 

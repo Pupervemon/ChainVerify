@@ -113,7 +113,7 @@ export function usePassportTrustedFactoryAdmin(
         normalizePassportContractError(loadError, {
           contractAddress: ASSET_PASSPORT_ADDRESS,
           contractName: "AssetPassport",
-          fallback: t("加载 AssetPassport owner 失败�?, "Failed to load AssetPassport owner."),
+          fallback: t("Failed to load AssetPassport owner.", "Failed to load AssetPassport owner."),
           t,
         }),
       );
@@ -147,7 +147,7 @@ export function usePassportTrustedFactoryAdmin(
           normalizePassportContractError(loadError, {
             contractAddress: ASSET_PASSPORT_ADDRESS,
             contractName: "AssetPassport",
-            fallback: t("加载可信工厂状态失败�?, "Failed to load trusted factory status."),
+            fallback: t("Failed to load trusted factory status.", "Failed to load trusted factory status."),
             t,
           }),
         );
@@ -161,17 +161,17 @@ export function usePassportTrustedFactoryAdmin(
   const setTrustedFactory = useCallback(
     async (factoryAddress: string, enabled: boolean) => {
       if (!isConnected || !address) {
-        setError(t("请先连接钱包再提交�?, "Connect a wallet before submitting."));
+        setError(t("Connect a wallet before submitting.", "Connect a wallet before submitting."));
         return;
       }
 
       if (!isConfigured) {
-        setError(t("AssetPassport 合约尚未配置�?, "AssetPassport is not configured."));
+        setError(t("AssetPassport is not configured.", "AssetPassport is not configured."));
         return;
       }
 
       if (!isPassportAddress(factoryAddress)) {
-        setError(t("请输入有效的工厂合约地址�?, "Enter a valid factory contract address."));
+        setError(t("Enter a valid factory contract address.", "Enter a valid factory contract address."));
         return;
       }
 
@@ -182,8 +182,8 @@ export function usePassportTrustedFactoryAdmin(
       setError("");
       setStatusMessage(
         enabled
-          ? t("正在提交可信工厂授权交易...", "Submitting trusted factory authorization transaction...")
-          : t("正在提交可信工厂移除交易...", "Submitting trusted factory removal transaction..."),
+          ? t("Submitting trusted factory approval...", "Submitting trusted factory approval...")
+          : t("Submitting trusted factory removal...", "Submitting trusted factory removal..."),
       );
       setLastSubmittedEnabled(enabled);
       setLastSubmittedFactory(factoryAddress);
@@ -200,7 +200,7 @@ export function usePassportTrustedFactoryAdmin(
         setError(
           submitError instanceof Error
             ? submitError.message
-            : t("提交可信工厂交易失败�?, "Failed to submit trusted factory transaction."),
+            : t("Failed to submit trusted factory transaction.", "Failed to submit trusted factory transaction."),
         );
       }
     },
@@ -239,8 +239,8 @@ export function usePassportTrustedFactoryAdmin(
 
     setStatusMessage(
       lastSubmittedEnabled
-        ? t("可信工厂授权成功�?, "Trusted factory authorized successfully.")
-        : t("可信工厂已移除�?, "Trusted factory removed successfully."),
+        ? t("Trusted factory was approved.", "Trusted factory was approved.")
+        : t("Trusted factory was removed.", "Trusted factory was removed."),
     );
     void loadFactoryStatus(lastSubmittedFactory);
   }, [isConfirmed, lastSubmittedEnabled, lastSubmittedFactory, loadFactoryStatus, t]);
@@ -269,5 +269,6 @@ export function usePassportTrustedFactoryAdmin(
     statusMessage,
   };
 }
+
 
 

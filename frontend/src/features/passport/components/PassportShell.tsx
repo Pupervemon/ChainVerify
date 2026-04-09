@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 const PASSPORT_SIDEBAR_COLLAPSED_STORAGE_KEY = "passport-sidebar-collapsed";
 
@@ -58,6 +58,7 @@ type CollapsedTooltipState = {
 
 export default function PassportShell(props: PassportShellProps) {
   const { children, currentKey } = props;
+  const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (typeof window === "undefined") {
       return false;
@@ -114,10 +115,10 @@ export default function PassportShell(props: PassportShellProps) {
         },
         {
           key: "policies",
-          label: "Issuer Authorization",
+          label: "Issuer Access",
           path: "/passport/policies",
           icon: Tags,
-          description: "Manage issuer authorization.",
+          description: "Manage issuer access.",
         },
         {
           key: "stamp-type-admins",
@@ -251,6 +252,10 @@ export default function PassportShell(props: PassportShellProps) {
       window.removeEventListener("scroll", dismissTooltip, true);
     };
   }, [collapsedTooltip]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname]);
 
   return (
     <main className={`passport-layout ${showCollapsedSidebar ? "is-collapsed" : ""}`}>

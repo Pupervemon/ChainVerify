@@ -7,8 +7,10 @@ import {
   isPassportAddress,
 } from "../../../config/passport";
 import PassportShell from "../components/PassportShell";
+import PassportTransactionSuccessNotice from "../components/PassportTransactionSuccessNotice";
 import { usePassportTrustedFactoryAdmin } from "../hooks/usePassportTrustedFactoryAdmin";
 import { usePassportTrustedFactoryList } from "../hooks/usePassportTrustedFactoryList";
+import { usePassportTransactionSuccessNotice } from "../hooks/usePassportTransactionSuccessNotice";
 import { usePassportLocale } from "../i18n";
 
 type PassportTrustedFactoryPageProps = {
@@ -43,6 +45,11 @@ export default function PassportTrustedFactoryPage(
     ensureSupportedChain,
     hasCorrectChain,
     isConnected,
+  });
+  const { clearSuccessNotice, successNoticeMessage } = usePassportTransactionSuccessNotice({
+    error,
+    isSubmitting,
+    statusMessage,
   });
   const {
     error: factoryListError,
@@ -107,6 +114,10 @@ export default function PassportTrustedFactoryPage(
 
   return (
     <PassportShell currentKey="factories">
+      <PassportTransactionSuccessNotice
+        message={successNoticeMessage}
+        onClose={clearSuccessNotice}
+      />
       <div className="passport-dashboard-body">
         <section className="passport-dashboard-primary panel-surface accent-grid relative overflow-hidden p-8 lg:p-10">
           <div className="passport-dashboard-primary__grid relative">

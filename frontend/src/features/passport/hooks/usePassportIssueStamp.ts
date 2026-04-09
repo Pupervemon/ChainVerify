@@ -2,8 +2,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { decodeEventLog } from "viem";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
-import { TARGET_CHAIN_ID } from "../../../config/network";
 
+import { TARGET_CHAIN_ID } from "../../../config/network";
 import {
   ASSET_PASSPORT_ABI,
   ASSET_PASSPORT_ADDRESS,
@@ -194,7 +194,10 @@ export function usePassportIssueStamp(
         normalizePassportContractError(loadError, {
           contractAddress: CHRONICLE_STAMP_ADDRESS,
           contractName: "ChronicleStamp",
-          fallback: t("加载印章类型列表失败�?, "Failed to load configured stamp types."),
+          fallback: t(
+            "Failed to load configured stamp types.",
+            "Failed to load configured stamp types.",
+          ),
           t,
         }),
       );
@@ -301,7 +304,10 @@ export function usePassportIssueStamp(
           normalizePassportContractError(loadError, {
             contractAddress: CHRONICLE_STAMP_ADDRESS,
             contractName: "ChronicleStamp",
-            fallback: t("加载印章签发上下文失败�?, "Failed to load stamp issue context."),
+            fallback: t(
+              "Failed to load stamp issue context.",
+              "Failed to load stamp issue context.",
+            ),
             t,
           }),
         );
@@ -342,22 +348,29 @@ export function usePassportIssueStamp(
   const submitIssueStamp = useCallback(
     async (form: IssueStampForm) => {
       if (!isConnected || !address) {
-        setError(t("请先连接钱包再提交�?, "Connect a wallet before submitting."));
+        setError(
+          t("Connect a wallet before submitting.", "Connect a wallet before submitting."),
+        );
         return;
       }
 
       if (!isConfigured) {
-        setError(t("资产护照合约尚未配置�?, "Passport contracts are not configured."));
+        setError(
+          t(
+            "Passport contracts are not configured.",
+            "Passport contracts are not configured.",
+          ),
+        );
         return;
       }
 
       if (!form.metadataCID.trim()) {
-        setError(t("必须填写元数�?CID�?, "Metadata CID is required."));
+        setError(t("Metadata CID is required.", "Metadata CID is required."));
         return;
       }
 
       if (form.occurredAt <= 0) {
-        setError(t("发生时间无效�?, "Occurred time must be valid."));
+        setError(t("Occurred time must be valid.", "Occurred time must be valid."));
         return;
       }
 
@@ -367,12 +380,17 @@ export function usePassportIssueStamp(
 
       setError("");
       setIssuedStampId(null);
-      setStatusMessage(t("正在提交印章签发交易...", "Submitting stamp issuance transaction..."));
+      setStatusMessage(
+        t(
+          "Submitting stamp issuance to the chain...",
+          "Submitting stamp issuance to the chain...",
+        ),
+      );
 
       try {
         if (!publicClient) {
           setStatusMessage("");
-          setError(t("链上客户端尚未就绪�?, "Public client is not ready."));
+          setError(t("Public client is not ready.", "Public client is not ready."));
           return;
         }
 
@@ -390,10 +408,7 @@ export function usePassportIssueStamp(
           ],
         });
 
-        const gas =
-          estimatedGas < 21_000n
-            ? 21_000n
-            : estimatedGas + estimatedGas / 5n;
+        const gas = estimatedGas < 21_000n ? 21_000n : estimatedGas + estimatedGas / 5n;
 
         await writeContractAsync({
           address: CHRONICLE_STAMP_ADDRESS as `0x${string}`,
@@ -414,13 +429,25 @@ export function usePassportIssueStamp(
           normalizePassportContractError(submitError, {
             contractAddress: CHRONICLE_STAMP_ADDRESS,
             contractName: "ChronicleStamp",
-            fallback: t("提交印章签发交易失败�?, "Failed to submit stamp issuance transaction."),
+            fallback: t(
+              "Failed to submit stamp issuance transaction.",
+              "Failed to submit stamp issuance transaction.",
+            ),
             t,
           }),
         );
       }
     },
-    [address, ensureSupportedChain, hasCorrectChain, isConfigured, isConnected, publicClient, t, writeContractAsync],
+    [
+      address,
+      ensureSupportedChain,
+      hasCorrectChain,
+      isConfigured,
+      isConnected,
+      publicClient,
+      t,
+      writeContractAsync,
+    ],
   );
 
   useEffect(() => {
@@ -450,10 +477,13 @@ export function usePassportIssueStamp(
     setIssuedStampId(parsedStampId);
     setStatusMessage(
       parsedStampId !== null
-        ? t(`印章 #${parsedStampId.toString()} 签发成功。`, `Stamp #${parsedStampId.toString()} issued successfully.`)
-        : t("印章签发交易已确认�?, "Stamp issuance confirmed."),
+        ? t(
+            `Stamp #${parsedStampId.toString()} was issued on-chain.`,
+            `Stamp #${parsedStampId.toString()} was issued on-chain.`,
+          )
+        : t("Stamp issuance was confirmed on-chain.", "Stamp issuance was confirmed on-chain."),
     );
-  }, [isConfirmed, receipt]);
+  }, [isConfirmed, receipt, t]);
 
   useEffect(() => {
     if (!isTxError || !txError) {
@@ -483,4 +513,3 @@ export function usePassportIssueStamp(
     submitIssueStamp,
   };
 }
-

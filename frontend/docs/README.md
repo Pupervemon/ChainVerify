@@ -27,7 +27,7 @@
 
 权限管理合约，负责：
 
-- issuer authorization
+- issuer access
 - creator 权限
 - stamp type admin 权限
 - revocation operator 权限
@@ -88,7 +88,7 @@
 
 - [creator-access.md](./creator-access.md)
 
-### 3.3 Issuer Authorization
+### 3.3 Issuer Access
 
 它管的是：
 
@@ -203,7 +203,7 @@
 - `Creator Access`
 - `Stamp Type Permission`
 - `Stamp Type Admin`
-- `Issuer Authorization`
+- `Issuer Access`
 - `Issue Stamp`
 - `Revocation Operators`
 - `Revoke Stamp`

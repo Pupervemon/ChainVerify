@@ -24,7 +24,7 @@
 
 - `AssetPassport.owner`
 
-所以这个页面和 `Creator Access`、`Issuer Authorization` 的 owner 口径不完全一样。
+所以这个页面和 `Creator Access`、`Issuer Access` 的 owner 口径不完全一样。
 
 ## 3. “可信工厂”到底代表什么
 

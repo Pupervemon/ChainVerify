@@ -1,7 +1,8 @@
 import { Copy, ExternalLink, RefreshCw, ShieldCheck, Tags } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import ModalDialog from '../../../components/ModalDialog';
 import { TARGET_CHAIN } from "../../../config/network";
 import {
   isPassportAddress,
@@ -9,12 +10,14 @@ import {
 } from "../../../config/passport";
 import CidComposer from "../components/CidComposer";
 import PassportShell from "../components/PassportShell";
+import PassportTransactionSuccessNotice from "../components/PassportTransactionSuccessNotice";
 import {
   type IssuerPolicyRecord,
   type IssuerPolicyScope,
   usePassportIssuerPolicyAdmin,
 } from "../hooks/usePassportIssuerPolicyAdmin";
 import { usePassportIssuerPolicyList } from "../hooks/usePassportIssuerPolicyList";
+import { usePassportTransactionSuccessNotice } from "../hooks/usePassportTransactionSuccessNotice";
 import { usePassportLocale } from "../i18n";
 import { CID_PRESET_BY_KEY } from "../utils/cidPresets";
 import type { IssuerPolicySnapshot } from "../utils/passportIssuerPolicyIndex";
@@ -52,6 +55,19 @@ const toDateTimeLocalValue = (value: bigint) => {
   )}:${pad(date.getMinutes())}`;
 };
 
+const buildIssuerPolicyContextKey = (query: {
+  issuerAddress: string;
+  passportId?: bigint;
+  scope: IssuerPolicyScope;
+  stampTypeId?: bigint;
+}) =>
+  [
+    query.scope,
+    query.issuerAddress.toLowerCase(),
+    query.stampTypeId?.toString() ?? "na",
+    query.passportId?.toString() ?? "na",
+  ].join(":");
+
 
 const policyDocumentPreset = CID_PRESET_BY_KEY.policy;
 export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPageProps) {
@@ -59,8 +75,15 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
   const { t } = usePassportLocale();
   const [searchParams] = useSearchParams();
   const initialScopeParam = searchParams.get("scope");
+  const hasInitialContextSearch = Boolean(
+    initialScopeParam ||
+      searchParams.get("issuer") ||
+      searchParams.get("stampTypeId") ||
+      searchParams.get("passportId"),
+  );
   const initialScope: IssuerPolicyScope =
     initialScopeParam === "type" || initialScopeParam === "passport" ? initialScopeParam : "global";
+  const initialContextAutoloadedRef = useRef(false);
   const [scope, setScope] = useState<IssuerPolicyScope>(initialScope);
   const [policyDirectoryScope, setPolicyDirectoryScope] = useState<IssuerPolicyScope>(initialScope);
   const [issuerAddress, setIssuerAddress] = useState(searchParams.get("issuer") || "");
@@ -72,6 +95,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
   const [validUntil, setValidUntil] = useState("");
   const [policyCID, setPolicyCID] = useState("");
   const [allowlistModeInput, setAllowlistModeInput] = useState(false);
+  const [isSaveFeedbackOpen, setIsSaveFeedbackOpen] = useState(false);
   const {
     authorityOwner,
     currentPolicy,
@@ -81,6 +105,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
     isLoadingAuthorityOwner,
     isLoadingPolicy,
     isSubmitting,
+    lastLoadedQuery,
     lastConfirmedTxHash,
     loadPolicyContext,
     passportAllowlistMode,
@@ -92,6 +117,11 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
     ensureSupportedChain,
     hasCorrectChain,
     isConnected,
+  });
+  const { clearSuccessNotice, successNoticeMessage } = usePassportTransactionSuccessNotice({
+    error,
+    isSubmitting,
+    statusMessage,
   });
   const {
     activePolicyCount,
@@ -124,16 +154,170 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
     (scope === "global" ||
       (scope === "type" && parsedStampTypeId !== null) ||
       (scope === "passport" && parsedPassportId !== null));
-
-  const canSubmitPolicy =
-    isAuthorityOwner &&
-    canLoadContext &&
+  const currentDraftQuery = useMemo(
+    () =>
+      canLoadContext
+        ? {
+            issuerAddress: normalizedIssuer,
+            passportId: scope === "passport" ? parsedPassportId ?? undefined : undefined,
+            scope,
+            stampTypeId: scope === "type" ? parsedStampTypeId ?? undefined : undefined,
+          }
+        : null,
+    [canLoadContext, normalizedIssuer, parsedPassportId, parsedStampTypeId, scope],
+  );
+  const draftContextKey = currentDraftQuery ? buildIssuerPolicyContextKey(currentDraftQuery) : "";
+  const loadedContextKey = lastLoadedQuery ? buildIssuerPolicyContextKey(lastLoadedQuery) : "";
+  const isCurrentContextLoaded =
+    Boolean(currentDraftQuery) && Boolean(lastLoadedQuery) && draftContextKey === loadedContextKey;
+  const displayedPolicy = isCurrentContextLoaded ? currentPolicy : null;
+  const displayedAllowlistMode = isCurrentContextLoaded ? passportAllowlistMode : null;
+  const hasInvalidValidityWindow =
     parsedValidAfter !== null &&
     parsedValidUntil !== null &&
-    (parsedValidUntil === 0n || parsedValidAfter === 0n || parsedValidUntil >= parsedValidAfter);
+    parsedValidAfter !== 0n &&
+    parsedValidUntil !== 0n &&
+    parsedValidUntil < parsedValidAfter;
+
+  const saveValidationIssues = useMemo(() => {
+    const issues: string[] = [];
+
+    if (!isConfigured) {
+      issues.push(
+        t(
+          '前端环境未配置 Passport 合约。',
+          'Passport contracts are not configured in the frontend environment.',
+        ),
+      );
+    }
+
+    if (!isConnected) {
+      issues.push(
+        t(
+          '保存授权前请先连接钱包。',
+          'Connect a wallet before saving authorization changes.',
+        ),
+      );
+    } else if (isLoadingAuthorityOwner && !authorityOwner) {
+      issues.push(
+        t(
+          '正在加载 PassportAuthority owner 权限，请稍候。',
+          'Wait for PassportAuthority owner access to finish loading.',
+        ),
+      );
+    } else if (!isAuthorityOwner) {
+      issues.push(
+        t(
+          '只有 PassportAuthority owner 可以提交授权变更。',
+          'Only the PassportAuthority owner can submit authorization changes.',
+        ),
+      );
+    }
+
+    if (!normalizedIssuer) {
+      issues.push(t('请输入 issuer 地址。', 'Enter an issuer address.'));
+    } else if (!hasValidIssuer) {
+      issues.push(t('请输入有效的 issuer 地址。', 'Enter a valid issuer address.'));
+    }
+
+    if (scope === 'type') {
+      if (!stampTypeId.trim()) {
+        issues.push(
+          t(
+            'Type 范围需要填写 Stamp Type ID。',
+            'Enter a stamp type ID for Type scope.',
+          ),
+        );
+      } else if (parsedStampTypeId === null) {
+        issues.push(
+          t(
+            'Stamp Type ID 必须是数字。',
+            'Stamp Type ID must be a numeric value.',
+          ),
+        );
+      }
+    }
+
+    if (scope === 'passport') {
+      if (!passportId.trim()) {
+        issues.push(
+          t(
+            'Passport 范围需要填写 Passport ID。',
+            'Enter a passport ID for Passport scope.',
+          ),
+        );
+      } else if (parsedPassportId === null) {
+        issues.push(
+          t(
+            'Passport ID 必须是数字。',
+            'Passport ID must be a numeric value.',
+          ),
+        );
+      }
+    }
+
+    if (parsedValidAfter === null) {
+      issues.push(
+        t(
+          'Valid After 必须是有效时间。',
+          'Valid After must be a valid date and time.',
+        ),
+      );
+    }
+
+    if (parsedValidUntil === null) {
+      issues.push(
+        t(
+          'Valid Until 必须是有效时间。',
+          'Valid Until must be a valid date and time.',
+        ),
+      );
+    }
+
+    if (currentDraftQuery && !isCurrentContextLoaded) {
+      issues.push(
+        t(
+          '请先加载授权，确保你编辑的是最新链上记录。',
+          'Load Authorization first so you are editing the latest on-chain record.',
+        ),
+      );
+    }
+
+    if (hasInvalidValidityWindow) {
+      issues.push(
+        t(
+          'Valid Until 必须晚于 Valid After。',
+          'Valid Until must be later than Valid After.',
+        ),
+      );
+    }
+
+    return issues;
+  }, [
+    authorityOwner,
+    currentDraftQuery,
+    hasInvalidValidityWindow,
+    hasValidIssuer,
+    isAuthorityOwner,
+    isConfigured,
+    isConnected,
+    isCurrentContextLoaded,
+    isLoadingAuthorityOwner,
+    normalizedIssuer,
+    parsedPassportId,
+    parsedValidAfter,
+    parsedValidUntil,
+    parsedStampTypeId,
+    passportId,
+    scope,
+    stampTypeId,
+    t,
+  ]);
+
+  const canSubmitPolicy = saveValidationIssues.length === 0;
 
   useEffect(() => {
-    if (!currentPolicy) {
+    if (!currentPolicy || !isCurrentContextLoaded) {
       return;
     }
 
@@ -142,15 +326,15 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
     setValidAfter(toDateTimeLocalValue(currentPolicy.validAfter));
     setValidUntil(toDateTimeLocalValue(currentPolicy.validUntil));
     setPolicyCID(currentPolicy.policyCID);
-  }, [currentPolicy]);
+  }, [currentPolicy, isCurrentContextLoaded]);
 
   useEffect(() => {
-    if (passportAllowlistMode === null) {
+    if (passportAllowlistMode === null || !isCurrentContextLoaded) {
       return;
     }
 
     setAllowlistModeInput(passportAllowlistMode);
-  }, [passportAllowlistMode]);
+  }, [isCurrentContextLoaded, passportAllowlistMode]);
 
   useEffect(() => {
     if (!lastConfirmedTxHash) {
@@ -161,24 +345,38 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
   }, [lastConfirmedTxHash, refreshPolicyList]);
 
   useEffect(() => {
-    if (!canLoadContext) {
+    if (!hasInitialContextSearch || !currentDraftQuery || initialContextAutoloadedRef.current) {
       return;
     }
 
-    void loadPolicyContext({
-      issuerAddress: normalizedIssuer,
-      passportId: parsedPassportId ?? undefined,
-      scope,
-      stampTypeId: parsedStampTypeId ?? undefined,
-    });
+    initialContextAutoloadedRef.current = true;
+    void loadPolicyContext(currentDraftQuery);
   }, [
-    canLoadContext,
+    currentDraftQuery,
+    hasInitialContextSearch,
     loadPolicyContext,
-    normalizedIssuer,
-    parsedPassportId,
-    parsedStampTypeId,
-    scope,
   ]);
+
+  useEffect(() => {
+    if (isCurrentContextLoaded) {
+      return;
+    }
+
+    setEnabled(false);
+    setRestrictToExplicitPassportList(false);
+    setValidAfter("");
+    setValidUntil("");
+    setPolicyCID("");
+    setAllowlistModeInput(false);
+  }, [draftContextKey, isCurrentContextLoaded]);
+
+  useEffect(() => {
+    if (saveValidationIssues.length > 0) {
+      return;
+    }
+
+    setIsSaveFeedbackOpen(false);
+  }, [saveValidationIssues.length]);
 
   const currentPolicyStateLabel = (policy: IssuerPolicyRecord | null) => {
     if (!policy) {
@@ -215,12 +413,12 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
     )
     : isAuthorityOwner
       ? t(
-        "This wallet can manage issuer authorization.",
-        "This wallet can manage issuer authorization.",
+        "This wallet can manage issuer access.",
+        "This wallet can manage issuer access.",
       )
       : t(
-        "Only the authority owner can manage issuer authorization.",
-        "Only the authority owner can manage issuer authorization.",
+        "Only the authority owner can manage issuer access.",
+        "Only the authority owner can manage issuer access.",
       );
   const accessToneClass = isAccessPending
     ? "text-slate-500"
@@ -269,27 +467,27 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
   > = {
     global: {
       description: t(
-        "这些地址当前拥有全局 issuer 授权�?,
-        "These addresses currently have active global issuer authorization.",
+        "These addresses currently have active global issuer access.",
+        "These addresses currently have active global issuer access.",
       ),
       items: policies.global,
-      title: t("全局范围", "Global Scope"),
+      title: t('全局范围', 'Global Scope'),
     },
     type: {
       description: t(
-        "这些地址当前对一个或多个印章类型拥有授权�?,
+        "These addresses are currently authorized for one or more stamp types.",
         "These addresses are currently authorized for one or more stamp types.",
       ),
       items: policies.type,
-      title: t("类型范围", "Type Scope"),
+      title: t('类型范围', 'Type Scope'),
     },
     passport: {
       description: t(
-        "这些地址当前对一个或多个 Passport 拥有授权�?,
+        "These addresses are currently authorized for one or more passports.",
         "These addresses are currently authorized for one or more passports.",
       ),
       items: policies.passport,
-      title: t("Passport 范围", "Passport Scope"),
+      title: t('Passport 范围', 'Passport Scope'),
     },
   };
   const policyDirectoryButtons = scopeOptions.map((option) => ({
@@ -297,6 +495,66 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
     value: option.value,
   }));
   const currentPolicyDirectory = policyDirectoryOptions[policyDirectoryScope];
+  const contextStatusTitle = isLoadingPolicy
+    ? t("Loading authorization snapshot", "Loading authorization snapshot")
+    : isCurrentContextLoaded
+      ? t("Snapshot loaded", "Snapshot loaded")
+      : currentDraftQuery
+        ? t("Context ready to load", "Context ready to load")
+        : t("Context incomplete", "Context incomplete");
+  const contextStatusDescription = !normalizedIssuer
+    ? t(
+        "Enter an issuer address, then complete the scope-specific identifier before loading chain state.",
+        "Enter an issuer address, then complete the scope-specific identifier before loading chain state.",
+      )
+    : !hasValidIssuer
+      ? t(
+          "The issuer address is not a valid EVM address.",
+          "The issuer address is not a valid EVM address.",
+        )
+      : scope === "type" && parsedStampTypeId === null
+        ? t(
+            "Type scope requires a numeric stamp type ID.",
+            "Type scope requires a numeric stamp type ID.",
+          )
+        : scope === "passport" && parsedPassportId === null
+          ? t(
+              "Passport scope requires a numeric passport ID.",
+              "Passport scope requires a numeric passport ID.",
+            )
+          : isLoadingPolicy
+            ? t(
+                "Fetching the latest on-chain authorization snapshot for this exact context.",
+                "Fetching the latest on-chain authorization snapshot for this exact context.",
+              )
+            : isCurrentContextLoaded
+              ? t(
+                  "Chain data is loaded. You can edit status, validity, CID, and allowlist settings from this snapshot.",
+                  "Chain data is loaded. You can edit status, validity, CID, and allowlist settings from this snapshot.",
+                )
+              : t(
+                  "This context is valid, but the form stays empty until you click Load Authorization.",
+                  "This context is valid, but the form stays empty until you click Load Authorization.",
+                );
+  const contextStatusClassName = isLoadingPolicy
+    ? "border-sky-200 bg-sky-50 text-sky-900"
+    : isCurrentContextLoaded
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : normalizedIssuer && !hasValidIssuer
+        ? "border-rose-200 bg-rose-50 text-rose-700"
+        : currentDraftQuery
+          ? "border-amber-200 bg-amber-50 text-amber-800"
+          : "border-slate-200 bg-slate-50 text-slate-700";
+  const saveHint = canSubmitPolicy
+    ? t(
+        '当前上下文已加载，可以提交到链上。',
+        'The current context is loaded and ready to be submitted on-chain.',
+      )
+    : saveValidationIssues[0] ||
+      t(
+        '提交前请先解决剩余校验项。',
+        'Resolve the remaining save requirements before submitting.',
+      );
 
   const handleCopyAddress = async (address: string) => {
     try {
@@ -307,12 +565,43 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
   };
 
   const loadPolicyIntoForm = (policy: IssuerPolicySnapshot) => {
+    const nextQuery = {
+      issuerAddress: policy.address,
+      passportId: policy.scope === "passport" ? policy.passportId ?? undefined : undefined,
+      scope: policy.scope,
+      stampTypeId: policy.scope === "type" ? policy.stampTypeId ?? undefined : undefined,
+    };
+
     setScope(policy.scope);
     setIssuerAddress(policy.address);
     setStampTypeId(policy.scope === "type" && policy.stampTypeId !== null ? policy.stampTypeId.toString() : "");
     setPassportId(
       policy.scope === "passport" && policy.passportId !== null ? policy.passportId.toString() : "",
     );
+    void loadPolicyContext(nextQuery);
+  };
+
+  const handleSaveAuthorization = () => {
+    if (isSubmitting) {
+      return;
+    }
+
+    if (saveValidationIssues.length > 0) {
+      setIsSaveFeedbackOpen(true);
+      return;
+    }
+
+    if (!currentDraftQuery) {
+      return;
+    }
+
+    void setIssuerPolicy(currentDraftQuery, {
+      enabled,
+      policyCID,
+      restrictToExplicitPassportList: effectiveRestrictToExplicitPassportList,
+      validAfter: parsedValidAfter ?? 0n,
+      validUntil: parsedValidUntil ?? 0n,
+    });
   };
 
   const renderPolicyGroup = (
@@ -341,10 +630,10 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                 : "";
               const contextBadge =
                 groupScope === "global"
-                  ? t("閸忋劌鐪幒鍫熸綀", "Global Authorization")
+                  ? t("闂佺绻堥崝宀勬儑椤掑嫬绠抽柛顐ゅ枑缂嶁偓", "Global Authorization")
                   : groupScope === "type"
                     ? t(
-                        `缁鐎?#${policy.stampTypeId?.toString() ?? "--"}`,
+                        `缂備緡鍋夐褔鎮?#${policy.stampTypeId?.toString() ?? "--"}`,
                         `Type #${policy.stampTypeId?.toString() ?? "--"}`,
                       )
                     : t(
@@ -359,7 +648,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                 >
                   <div className="passport-dashboard-address-item__header">
                     <span className="passport-dashboard-address-item__label">
-                      {t("瀹稿弶宸块弶鍐ㄦ勾閸р�?, "Authorized Address")}{" "}
+                      {t("Authorized Address", "Authorized Address")}{" "}
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-emerald-700">
@@ -417,7 +706,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
 
                     <div className="passport-dashboard-address-item__meta">
                       <span className="passport-dashboard-address-item__meta-label">
-                        {t("鏈€鏂版枃妗?CID", "Latest document CID")}
+                        {t("闂佸搫鐗冮崑鎾绘煛閸屾粌顣奸柡瀣暙椤?CID", "Latest document CID")}
                       </span>
                       {policy.policyCID ? (
                         <span className="passport-dashboard-address-item__meta-value">
@@ -441,17 +730,17 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
           <div className="passport-issuer-policy-group__empty rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
             {groupScope === "global"
               ? t(
-                  "No active global issuer authorization is currently indexed.",
-                  "No active global issuer authorization is currently indexed.",
+                  "No active global issuer access is currently indexed.",
+                  "No active global issuer access is currently indexed.",
                 )
               : groupScope === "type"
                 ? t(
-                    "No active type-level issuer authorization is currently indexed.",
-                    "No active type-level issuer authorization is currently indexed.",
+                    "No active type-level issuer access is currently indexed.",
+                    "No active type-level issuer access is currently indexed.",
                   )
                 : t(
-                    "No active passport-level issuer authorization is currently indexed.",
-                    "No active passport-level issuer authorization is currently indexed.",
+                    "No active passport-level issuer access is currently indexed.",
+                    "No active passport-level issuer access is currently indexed.",
                   )}
           </div>
         )}
@@ -485,10 +774,10 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                 : "";
               const contextBadge =
                 groupScope === "global"
-                  ? t("全局授权", "Global Authorization")
+                  ? t("闂佺绻堥崝宀勬儑椤掑嫬绠抽柛顐ゅ枑缂嶁偓", "Global Authorization")
                   : groupScope === "type"
                     ? t(
-                        `类型 #${policy.stampTypeId?.toString() ?? "--"}`,
+                        `缂備緡鍋夐褔鎮?#${policy.stampTypeId?.toString() ?? "--"}`,
                         `Type #${policy.stampTypeId?.toString() ?? "--"}`,
                       )
                     : t(
@@ -504,7 +793,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                   <div className="passport-issuer-policy-directory__row-main">
                     <div className="passport-issuer-policy-directory__row-head">
                       <span className="passport-issuer-policy-directory__row-title">
-                        {t("已授权地址", "Authorized Address")} {String(index + 1).padStart(2, "0")}
+                        {t('已授权地址', 'Authorized Address')} {String(index + 1).padStart(2, '0')}
                       </span>
                       <span className="passport-issuer-policy-directory__scope-badge">
                         {contextBadge}
@@ -515,7 +804,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
 
                     <div className="passport-issuer-policy-directory__meta">
                       <span className="passport-issuer-policy-directory__meta-label">
-                        {t("最新文�?CID", "Latest document CID")}
+                        {t("闂佸搫鐗冮崑鎾绘煛閸屾粌顣奸柡瀣暙椤?CID", "Latest document CID")}
                       </span>
                       {policy.policyCID ? (
                         <span className="passport-issuer-policy-directory__meta-value">
@@ -524,7 +813,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                       ) : (
                         <span className="passport-issuer-policy-directory__meta-empty">
                           {t(
-                            "最新授权快照未设置 CID�?,
+                            "Latest authorization snapshot has no CID set.",
                             "Latest authorization snapshot has no CID set.",
                           )}
                         </span>
@@ -538,7 +827,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                       onClick={() => loadPolicyIntoForm(policy)}
                       className="passport-issuer-policy-directory__action"
                     >
-                      {t("载入", "Load")}
+                      {t('载入', 'Load')}
                     </button>
                     <button
                       type="button"
@@ -546,7 +835,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                       className="passport-issuer-policy-directory__action"
                     >
                       <Copy size={12} />
-                      {t("复制", "Copy")}
+                      {t('复制', 'Copy')}
                     </button>
                     {addressHref ? (
                       <a
@@ -556,7 +845,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                         className="passport-issuer-policy-directory__action"
                       >
                         <ExternalLink size={12} />
-                        {t("浏览�?, "Explorer")}
+                        {t("Explorer", "Explorer")}
                       </a>
                     ) : (
                       <button
@@ -564,12 +853,12 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                         disabled
                         className="passport-issuer-policy-directory__action is-disabled"
                         title={t(
-                          "当前链没有配置区块浏览器�?,
+                          "No block explorer is configured for the current chain.",
                           "No block explorer is configured for the current chain.",
                         )}
                       >
                         <ExternalLink size={12} />
-                        {t("浏览�?, "Explorer")}
+                        {t("Explorer", "Explorer")}
                       </button>
                     )}
                   </div>
@@ -581,17 +870,17 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
           <div className="passport-issuer-policy-directory__empty">
             {groupScope === "global"
               ? t(
-                  "当前没有已索引的全局发章授权�?,
-                  "No active global issuer authorization is currently indexed.",
+                  "No active global issuer access is currently indexed.",
+                  "No active global issuer access is currently indexed.",
                 )
               : groupScope === "type"
                 ? t(
-                    "当前没有已索引的类型级发章授权�?,
-                    "No active type-level issuer authorization is currently indexed.",
+                    "No active type-level issuer access is currently indexed.",
+                    "No active type-level issuer access is currently indexed.",
                   )
                 : t(
-                    "当前没有已索引的 Passport 级发章授权�?,
-                    "No active passport-level issuer authorization is currently indexed.",
+                    "No active passport-level issuer access is currently indexed.",
+                    "No active passport-level issuer access is currently indexed.",
                   )}
           </div>
         )}
@@ -601,19 +890,59 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
 
   return (
     <PassportShell currentKey="policies">
+      <PassportTransactionSuccessNotice
+        message={successNoticeMessage}
+        onClose={clearSuccessNotice}
+      />
+      <ModalDialog
+        open={isSaveFeedbackOpen}
+        onClose={() => setIsSaveFeedbackOpen(false)}
+        tone='warning'
+        title={t('保存条件未满足', 'Save requirements not met')}
+        description={t(
+          '请先解决下面这些问题，再提交本次授权更新。',
+          'Resolve the following items before submitting this authorization update.',
+        )}
+        closeAriaLabel={t('关闭保存条件提示', 'Close save requirements dialog')}
+        footer={
+          <div className='flex justify-end'>
+            <button
+              type='button'
+              onClick={() => setIsSaveFeedbackOpen(false)}
+              className='passport-action-button passport-action-button--secondary'
+            >
+              {t('我知道了', 'I Understand')}
+            </button>
+          </div>
+        }
+      >
+        <ul className='space-y-3'>
+          {saveValidationIssues.map((issue, index) => (
+            <li
+              key={`${index}-${issue}`}
+              className='flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3'
+            >
+              <span className='inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-900 text-xs font-black text-amber-100'>
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <p className='pt-0.5 text-sm font-semibold leading-6 text-amber-950'>{issue}</p>
+            </li>
+          ))}
+        </ul>
+      </ModalDialog>
       <div className="passport-dashboard-body">
         <section className="passport-dashboard-primary panel-surface accent-grid relative overflow-hidden p-8 lg:p-10">
           <div className="passport-dashboard-primary__grid relative">
             <div className="passport-dashboard-primary__content space-y-5">
               <span className="passport-dashboard-primary__header">
-                {t("閸欐垹鐝烽幒鍫熸綀", "Issuer Authorization")}
+                {t('发章授权', 'Issuer Access')}
               </span>
 
               <div className="space-y-3">
                 <h1 className="max-w-3xl font-nav text-4xl font-bold tracking-[-0.04em] text-slate-900 lg:text-5xl">
                   {t(
-                    "Manage issuer authorization across global, type, and passport scope.",
-                    "Manage issuer authorization across global, type, and passport scope.",
+                    "Manage stamp access for one issuer wallet across global, type, and passport scope.",
+                    "Manage stamp access for one issuer wallet across global, type, and passport scope.",
                   )}
                 </h1>
                 <p className="max-w-2xl text-base font-medium text-slate-900">
@@ -676,8 +1005,8 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                   </div>
                   <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
                     {t(
-                      "Indexed from latest issuer authorization events across global, type, and passport scope.",
-                      "Indexed from latest issuer authorization events across global, type, and passport scope.",
+                      "Indexed from latest issuer access events across global, type, and passport scope.",
+                      "Indexed from latest issuer access events across global, type, and passport scope.",
                     )}
                   </p>
                 </div>
@@ -691,7 +1020,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
             <div className="passport-dashboard-panel-head flex items-start gap-4 border-b border-white/8 pb-6">
               <div className="passport-dashboard-status__intro">
                 <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                  {t("闁板秶鐤嗛幒鍫熸綀", "Configure Authorization")}
+                  {t("闂備焦婢樼粔鍫曟偪閸℃稑绠抽柛顐ゅ枑缂嶁偓", "Configure Authorization")}
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm font-medium text-slate-600">
                   {t(
@@ -702,97 +1031,170 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
               </div>
             </div>
 
-            <div className="passport-issuer-policy-config mt-8 space-y-4">
-              <div className="panel-soft passport-issuer-policy-scope p-5">
-                <p className="meta-label">{t("閹哄牊娼堥懠鍐ㄦ�?, "Authorization Scope")}</p>
-                <div
-                  className="passport-issuer-policy-scope__options"
-                  role="group"
-                  aria-label={t("Authorization Scope", "Authorization Scope")}
-                >
-                  {scopeOptions.map((option) => (
-                    <button
-                      type="button"
-                      key={option.value}
-                      onClick={() => setScope(option.value)}
-                      aria-pressed={scope === option.value}
-                      className={`passport-issuer-policy-scope__option ${
-                        scope === option.value ? "is-active" : ""
-                      }`}
-                    >
-                      <span className="passport-issuer-policy-scope__option-label">{option.label}</span>
-                    </button>
-                  ))}
+            <div className="passport-issuer-policy-config mt-8 space-y-5">
+              <div className="grid gap-4 xl:grid-cols-2">
+                <div className="panel-soft passport-issuer-policy-scope p-5">
+                  <p className="meta-label">{t("Authorization Scope", "Authorization Scope")}</p>
+                  <div
+                    className="passport-issuer-policy-scope__options"
+                    role="group"
+                    aria-label={t("Authorization Scope", "Authorization Scope")}
+                  >
+                    {scopeOptions.map((option) => (
+                      <button
+                        type="button"
+                        key={option.value}
+                        onClick={() => setScope(option.value)}
+                        aria-pressed={scope === option.value}
+                        className={`passport-issuer-policy-scope__option ${
+                          scope === option.value ? "is-active" : ""
+                        }`}
+                      >
+                        <span className="passport-issuer-policy-scope__option-label">{option.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="passport-issuer-policy-scope__selected">{selectedScopeDescription}</p>
                 </div>
-                <p className="passport-issuer-policy-scope__selected">{selectedScopeDescription}</p>
+
+                <div className={`rounded-3xl border px-5 py-5 ${contextStatusClassName}`}>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] opacity-70">
+                    {t("Editor Status", "Editor Status")}
+                  </p>
+                  <p className="mt-3 text-lg font-black tracking-tight">{contextStatusTitle}</p>
+                  <p className="mt-2 text-sm font-medium leading-6 opacity-85">
+                    {contextStatusDescription}
+                  </p>
+
+                  {currentDraftQuery ? (
+                    <div className="mt-4 rounded-2xl border border-black/10 bg-white/75 px-4 py-4 text-slate-900">
+                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                        {t("Current Context", "Current Context")}
+                      </p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                            {t("Issuer", "Issuer")}
+                          </p>
+                          <p className="break-all font-mono text-sm font-semibold text-slate-900">
+                            {currentDraftQuery.issuerAddress}
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                            {t("Scope", "Scope")}
+                          </p>
+                          <p className="text-sm font-semibold text-slate-900">{scopeLabel}</p>
+                        </div>
+                        {scope === "type" ? (
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                              {t("Stamp Type ID", "Stamp Type ID")}
+                            </p>
+                            <p className="font-mono text-sm font-semibold text-slate-900">
+                              {parsedStampTypeId?.toString()}
+                            </p>
+                          </div>
+                        ) : null}
+                        {scope === "passport" ? (
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                              {t("Passport ID", "Passport ID")}
+                            </p>
+                            <p className="font-mono text-sm font-semibold text-slate-900">
+                              {parsedPassportId?.toString()}
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               <div className="panel-soft p-5">
-                <label className="meta-label" htmlFor="issuer-address">
-                  {t("Issuer Address", "Issuer Address")}
-                </label>
-                <input
-                  id="issuer-address"
-                  type="text"
-                  value={issuerAddress}
-                  onChange={(event) => setIssuerAddress(event.target.value)}
-                  placeholder="0x..."
-                  className="passport-dashboard-query__input mt-3 h-12 font-mono"
-                />
-              </div>
+                <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="meta-label">{t("Authorization Context", "Authorization Context")}</p>
+                    <p className="mt-3 max-w-2xl text-sm font-medium text-slate-600">
+                      {t(
+                        "Start with the issuer address and the exact record you want to inspect on-chain.",
+                        "Start with the issuer address and the exact record you want to inspect on-chain.",
+                      )}
+                    </p>
+                  </div>
 
-              {scope === "type" ? (
-                <div className="panel-soft p-5">
-                  <label className="meta-label" htmlFor="type-stamp-type-id">
-                    {t("Stamp Type ID", "Stamp Type ID")}
-                  </label>
-                  <input
-                    id="type-stamp-type-id"
-                    type="text"
-                    value={stampTypeId}
-                    onChange={(event) => setStampTypeId(event.target.value)}
-                    placeholder="1"
-                    className="passport-dashboard-query__input mt-3 h-12 font-mono"
-                  />
+                  <button
+                    onClick={() => {
+                      if (!currentDraftQuery) {
+                        return;
+                      }
+
+                      void loadPolicyContext(currentDraftQuery);
+                    }}
+                    disabled={!currentDraftQuery || isLoadingPolicy}
+                    className="passport-action-button passport-action-button--secondary"
+                  >
+                    <RefreshCw size={16} className={isLoadingPolicy ? "animate-spin" : ""} />
+                    {t("闂佸憡姊绘慨鎯归崶顒€绠抽柛顐ゅ枑缂嶁偓", "Load Authorization")}
+                  </button>
                 </div>
-              ) : null}
 
-              {scope === "passport" ? (
-                <div className="panel-soft p-5">
-                  <label className="meta-label" htmlFor="type-passport-id">
-                    {t("Passport ID", "Passport ID")}
-                  </label>
-                  <input
-                    id="type-passport-id"
-                    type="text"
-                    value={passportId}
-                    onChange={(event) => setPassportId(event.target.value)}
-                    placeholder="1"
-                    className="passport-dashboard-query__input mt-3 h-12 font-mono"
-                  />
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 bg-white/80 p-5">
+                    <label className="meta-label" htmlFor="issuer-address">
+                      {t("Issuer Address", "Issuer Address")}
+                    </label>
+                    <input
+                      id="issuer-address"
+                      type="text"
+                      value={issuerAddress}
+                      onChange={(event) => setIssuerAddress(event.target.value)}
+                      placeholder="0x..."
+                      className="passport-dashboard-query__input mt-3 h-12 font-mono"
+                    />
+                  </div>
+
+                  {scope === "type" ? (
+                    <div className="rounded-2xl border border-slate-200 bg-white/80 p-5">
+                      <label className="meta-label" htmlFor="type-stamp-type-id">
+                        {t("Stamp Type ID", "Stamp Type ID")}
+                      </label>
+                      <input
+                        id="type-stamp-type-id"
+                        type="text"
+                        value={stampTypeId}
+                        onChange={(event) => setStampTypeId(event.target.value)}
+                        placeholder="1"
+                        className="passport-dashboard-query__input mt-3 h-12 font-mono"
+                      />
+                    </div>
+                  ) : scope === "passport" ? (
+                    <div className="rounded-2xl border border-slate-200 bg-white/80 p-5">
+                      <label className="meta-label" htmlFor="type-passport-id">
+                        {t("Passport ID", "Passport ID")}
+                      </label>
+                      <input
+                        id="type-passport-id"
+                        type="text"
+                        value={passportId}
+                        onChange={(event) => setPassportId(event.target.value)}
+                        placeholder="1"
+                        className="passport-dashboard-query__input mt-3 h-12 font-mono"
+                      />
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/90 p-5">
+                      <p className="meta-label">{t("Global Scope Note", "Global Scope Note")}</p>
+                      <p className="mt-3 text-sm font-medium leading-6 text-slate-600">
+                        {t(
+                          "Global scope only needs the issuer address. No stamp type ID or passport ID is required.",
+                          "Global scope only needs the issuer address. No stamp type ID or passport ID is required.",
+                        )}
+                      </p>
+                    </div>
+                  )}
                 </div>
-              ) : null}
-
-              <div className="passport-dashboard-primary__actions">
-                <button
-                  onClick={() => {
-                    if (!canLoadContext) {
-                      return;
-                    }
-
-                    void loadPolicyContext({
-                      issuerAddress: normalizedIssuer,
-                      passportId: parsedPassportId ?? undefined,
-                      scope,
-                      stampTypeId: parsedStampTypeId ?? undefined,
-                    });
-                  }}
-                  disabled={!canLoadContext || isLoadingPolicy}
-                  className="passport-action-button passport-action-button--secondary"
-                >
-                  <RefreshCw size={16} className={isLoadingPolicy ? "animate-spin" : ""} />
-                  {t("閸旂姾娴囬幒鍫熸綀", "Load Authorization")}
-                </button>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -803,7 +1205,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                     onChange={(event) => setEnabled(event.target.checked)}
                     className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                   />
-                  {t("閸氼垳鏁ら幒鍫熸綀", "Enable Authorization")}
+                  {t("闂佸憡鍑归崹鎶藉极閵堝绠抽柛顐ゅ枑缂嶁偓", "Enable Authorization")}
                 </label>
                 {!isPassportScope ? (
                   <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-700">
@@ -850,7 +1252,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
 
               <div className="panel-soft p-5">
                 <label className="meta-label" htmlFor="policy-cid">
-                  {t("閹哄牊娼堥弬鍥ㄣ�?CID", "Authorization Document CID")}
+                  {t("闂佺懓鎼悧濠傤焽閸儱妫橀柛銉ｅ妸閳?CID", "Authorization Document CID")}
                 </label>
                 <input
                   id="policy-cid"
@@ -877,7 +1279,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                     to="/passport/cid-studio"
                     className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-sky-600 transition-colors hover:text-sky-700"
                   >
-                    <RefreshCw size={16} />
+                    <ExternalLink size={16} />
                     {t("Open CID Studio", "Open CID Studio")}
                   </Link>
                 </div>
@@ -898,44 +1300,35 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
               </div>
 
 
-              <div className="passport-dashboard-primary__actions">
-                <button
-                  onClick={() => {
-                    if (!canSubmitPolicy) {
-                      return;
-                    }
-
-                    void setIssuerPolicy(
-                      {
-                        issuerAddress: normalizedIssuer,
-                        passportId: parsedPassportId ?? undefined,
-                        scope,
-                        stampTypeId: parsedStampTypeId ?? undefined,
-                      },
-                      {
-                        enabled,
-                        policyCID,
-                        restrictToExplicitPassportList: effectiveRestrictToExplicitPassportList,
-                        validAfter: parsedValidAfter ?? 0n,
-                        validUntil: parsedValidUntil ?? 0n,
-                      },
-                    );
-                  }}
-                  disabled={!canSubmitPolicy || isSubmitting}
-                  className="passport-action-button passport-action-button--primary"
-                >
-                  <ShieldCheck size={16} />
-                  {isSubmitting ? t("閹绘劒姘︽稉?..", "Submitting...") : t("娣囨繂鐡ㄩ幒鍫熸綀", "Save Authorization")}
-                </button>
+              <div className="panel-soft p-5">
+                <p className="meta-label">{t("Submit Changes", "Submit Changes")}</p>
+                <p className="mt-3 max-w-2xl text-sm font-medium text-slate-600">{saveHint}</p>
+                <div className="passport-dashboard-primary__actions mt-4">
+                  <button
+                    type='button'
+                    onClick={handleSaveAuthorization}
+                    disabled={isSubmitting}
+                    className='passport-action-button passport-action-button--primary'
+                  >
+                    <ShieldCheck size={16} />
+                    {isSubmitting ? t("闂佸湱绮崝鎺戭潩閿旂晫鈻?..", "Submitting...") : t("婵烇絽娲︾换鍌炴偤閵娾晛绠抽柛顐ゅ枑缂嶁偓", "Save Authorization")}
+                  </button>
+                </div>
               </div>
 
               {scope === "passport" && parsedPassportId !== null ? (
-                <div className="panel-soft p-5">
+                <div id="passport-allowlist" className="panel-soft p-5">
                   <p className="meta-label">{t("Passport Allowlist Enforcement", "Passport Allowlist Enforcement")}</p>
                   <p className="mt-3 text-sm font-medium text-slate-600">
                     {t(
                       "When enabled, this passport only accepts explicit passport-level authorization.",
                       "When enabled, this passport only accepts explicit passport-level authorization.",
+                    )}
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-slate-500">
+                    {t(
+                      "This switch is bound to the passportId itself. You can update it directly here without loading one issuer record first.",
+                      "This switch is bound to the passportId itself. You can update it directly here without loading one issuer record first.",
                     )}
                   </p>
                   <label className="mt-4 flex items-center gap-3 text-sm font-semibold text-slate-700">
@@ -966,7 +1359,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
             <div className="passport-dashboard-panel-head flex items-start gap-4 border-b border-white/8 pb-6">
               <div className="passport-dashboard-status__intro">
                 <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                  {t("閹哄牊娼堣箛顐ゅ�?, "Authorization Snapshot")}
+                  {t("Authorization Snapshot", "Authorization Snapshot")}
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm font-medium text-slate-600">
                   {t(
@@ -988,37 +1381,37 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                 <div className="panel-soft p-5">
                   <p className="meta-label">{t("Current Authorization Status", "Current Authorization Status")}</p>
                   <p className="mt-3 text-sm font-semibold text-slate-700">
-                    {currentPolicyStateLabel(currentPolicy)}
+                    {currentPolicyStateLabel(displayedPolicy)}
                   </p>
                 </div>
               </div>
 
-              {currentPolicy ? (
+              {displayedPolicy ? (
                 <>
                   <div className="panel-soft p-5">
                     <p className="meta-label">{t("Validity Window", "Validity Window")}</p>
                     <p className="mt-3 text-sm font-semibold text-slate-700">
-                      {currentPolicy.validAfter === 0n
+                      {displayedPolicy.validAfter === 0n
                         ? t("No start limit", "No start limit")
                         : t(
-                          `Starts at ${new Date(Number(currentPolicy.validAfter) * 1000).toLocaleString()}`,
-                          `Starts at ${new Date(Number(currentPolicy.validAfter) * 1000).toLocaleString()}`,
+                          `Starts at ${new Date(Number(displayedPolicy.validAfter) * 1000).toLocaleString()}`,
+                          `Starts at ${new Date(Number(displayedPolicy.validAfter) * 1000).toLocaleString()}`,
                         )}
                     </p>
                     <p className="mt-1 text-sm font-semibold text-slate-700">
-                      {currentPolicy.validUntil === 0n
+                      {displayedPolicy.validUntil === 0n
                         ? t("No expiration", "No expiration")
                         : t(
-                          `Expires at ${new Date(Number(currentPolicy.validUntil) * 1000).toLocaleString()}`,
-                          `Expires at ${new Date(Number(currentPolicy.validUntil) * 1000).toLocaleString()}`,
+                          `Expires at ${new Date(Number(displayedPolicy.validUntil) * 1000).toLocaleString()}`,
+                          `Expires at ${new Date(Number(displayedPolicy.validUntil) * 1000).toLocaleString()}`,
                         )}
                     </p>
                   </div>
 
                   <div className="panel-soft p-5">
-                    <p className="meta-label">{t("閹哄牊娼堥弬鍥ㄣ�?CID", "Authorization Document CID")}</p>
+                    <p className="meta-label">{t("闂佺懓鎼悧濠傤焽閸儱妫橀柛銉ｅ妸閳?CID", "Authorization Document CID")}</p>
                     <p className="mt-3 break-all font-mono text-sm text-slate-700">
-                      {currentPolicy.policyCID || t("Not set", "Not set")}
+                      {displayedPolicy.policyCID || t("Not set", "Not set")}
                     </p>
                   </div>
                 </>
@@ -1028,9 +1421,9 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                 <div className="panel-soft p-5">
                   <p className="meta-label">{t("Allowlist Enforcement", "Allowlist Enforcement")}</p>
                   <p className="mt-3 text-sm font-semibold text-slate-700">
-                    {passportAllowlistMode === null
+                    {displayedAllowlistMode === null
                       ? t("Not loaded", "Not loaded")
-                      : passportAllowlistMode
+                      : displayedAllowlistMode
                         ? t("Enabled", "Enabled")
                         : t("Disabled", "Disabled")}
                   </p>
@@ -1071,7 +1464,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
             <div className="passport-dashboard-panel-head flex items-start justify-between gap-4 border-b border-white/8 pb-6">
               <div className="passport-dashboard-status__intro">
                 <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                  {t("瀹稿弶宸块弶鍐ㄦ勾閸р�?, "Authorized Addresses")}
+                  {t("Authorized Addresses", "Authorized Addresses")}
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm font-medium text-slate-600">
                   {t(
@@ -1096,8 +1489,8 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
                 <p className="font-semibold">{t("On-chain Source", "On-chain Source")}</p>
                 <p className="mt-2">
                   {t(
-                    "Because PassportAuthority does not expose enumerable issuer authorization mappings, this list is rebuilt from the latest GlobalIssuerPolicySet, TypeIssuerPolicySet, and PassportIssuerPolicySet events. It reflects enabled states by scope; exact validity windows still need the snapshot panel.",
-                    "Because PassportAuthority does not expose enumerable issuer authorization mappings, this list is rebuilt from the latest GlobalIssuerPolicySet, TypeIssuerPolicySet, and PassportIssuerPolicySet events. It reflects enabled states by scope; exact validity windows still need the snapshot panel.",
+                    "Because PassportAuthority does not expose enumerable issuer access mappings, this list is rebuilt from the latest GlobalIssuerPolicySet, TypeIssuerPolicySet, and PassportIssuerPolicySet events. It reflects enabled states by scope; exact validity windows still need the snapshot panel.",
+                    "Because PassportAuthority does not expose enumerable issuer access mappings, this list is rebuilt from the latest GlobalIssuerPolicySet, TypeIssuerPolicySet, and PassportIssuerPolicySet events. It reflects enabled states by scope; exact validity windows still need the snapshot panel.",
                   )}
                 </p>
               </div>
@@ -1118,7 +1511,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
               ) : isLoadingPolicyList ? (
                 <div className="panel-soft p-5 text-sm font-semibold text-slate-700">
                   {t(
-                    "濮濓絽婀禒?PassportAuthority 娴滃娆㈤崝鐘烘祰瀹稿弶宸块弶鍐ㄦ勾閸р偓閸掓�?..",
+                    "濠殿喗绻愮徊钘夛耿椤忓懐顩?PassportAuthority 婵炲瓨绮岄鍕枎閵忥紕鈻旀い鎾跺仜椤綁寮堕悙鑸殿棄闁告埊绻濋獮鎺楀醇閻斿摜绉梺闈╅檮濠㈡ê顭囬崘顔肩婵°倕瀚ㄩ埀?..",
                     "Loading authorized address lists from PassportAuthority events...",
                   )}
                 </div>
@@ -1159,5 +1552,7 @@ export default function PassportIssuerPolicyPage(props: PassportIssuerPolicyPage
     </PassportShell>
   );
 }
+
+
 
 

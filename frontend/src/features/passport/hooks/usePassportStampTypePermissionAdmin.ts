@@ -1,4 +1,4 @@
-﻿import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
@@ -112,7 +112,10 @@ export function usePassportStampTypePermissionAdmin(
       setError(
         loadError instanceof Error
           ? loadError.message
-          : t("鍔犺浇 PassportAuthority owner 澶辫触銆?, "Failed to load PassportAuthority owner."),
+          : t(
+              "Failed to load PassportAuthority owner.",
+              "Failed to load PassportAuthority owner.",
+            ),
       );
     } finally {
       setIsLoadingAuthorityOwner(false);
@@ -143,29 +146,39 @@ export function usePassportStampTypePermissionAdmin(
         setError(
           loadError instanceof Error
             ? loadError.message
-            : t("鍔犺浇鍗扮珷绫诲瀷绠＄悊鍛樼姸鎬佸け璐ャ€?, "Failed to load stamp type admin status."),
+            : t(
+                "Failed to load stamp type admin status.",
+                "Failed to load stamp type admin status.",
+              ),
         );
       } finally {
         setIsCheckingAdmin(false);
       }
     },
-    [isConfigured, publicClient],
+    [isConfigured, publicClient, t],
   );
 
   const setStampTypeAdmin = useCallback(
     async (stampTypeId: bigint, adminAddress: string, enabled: boolean) => {
       if (!isConnected || !address) {
-        setError(t("璇峰厛杩炴帴閽卞寘鍐嶆彁浜ゃ€?, "Connect a wallet before submitting."));
+        setError(
+          t("Connect a wallet before submitting.", "Connect a wallet before submitting."),
+        );
         return;
       }
 
       if (!isConfigured) {
-        setError(t("璧勪骇鎶ょ収鍚堢害灏氭湭閰嶇疆銆?, "Passport contracts are not configured."));
+        setError(
+          t(
+            "Passport contracts are not configured.",
+            "Passport contracts are not configured.",
+          ),
+        );
         return;
       }
 
       if (!isPassportAddress(adminAddress)) {
-        setError(t("璇疯緭鍏ユ湁鏁堢殑绠＄悊鍛樺湴鍧€銆?, "Enter a valid admin address."));
+        setError(t("Enter a valid admin address.", "Enter a valid admin address."));
         return;
       }
 
@@ -177,12 +190,12 @@ export function usePassportStampTypePermissionAdmin(
       setStatusMessage(
         enabled
           ? t(
-              "姝ｅ湪鎻愪氦鍗扮珷绫诲瀷绠＄悊鍛樻巿鏉冧氦鏄?..",
-              "Submitting stamp type admin grant transaction...",
+              "Submitting stamp type admin grant...",
+              "Submitting stamp type admin grant...",
             )
           : t(
-              "姝ｅ湪鎻愪氦鍗扮珷绫诲瀷绠＄悊鍛樻挙閿€浜ゆ槗...",
-              "Submitting stamp type admin revoke transaction...",
+              "Submitting stamp type admin revocation...",
+              "Submitting stamp type admin revocation...",
             ),
       );
       setLastSubmittedAdmin(adminAddress);
@@ -201,7 +214,10 @@ export function usePassportStampTypePermissionAdmin(
         setError(
           submitError instanceof Error
             ? submitError.message
-            : t("鎻愪氦鍗扮珷绫诲瀷绠＄悊鍛樹氦鏄撳け璐ャ€?, "Failed to submit stamp type admin transaction."),
+            : t(
+                "Failed to submit stamp type admin transaction.",
+                "Failed to submit stamp type admin transaction.",
+              ),
         );
       }
     },
@@ -211,6 +227,7 @@ export function usePassportStampTypePermissionAdmin(
       hasCorrectChain,
       isConfigured,
       isConnected,
+      t,
       writeContractAsync,
     ],
   );
@@ -245,12 +262,12 @@ export function usePassportStampTypePermissionAdmin(
     setStatusMessage(
       lastSubmittedEnabled
         ? t(
-            `鍗扮珷绫诲瀷 #${lastSubmittedStampTypeId.toString()} 鐨勭鐞嗗憳鎺堟潈鎴愬姛銆俙,
-            `Admin granted for stamp type #${lastSubmittedStampTypeId.toString()}.`,
+            `Stamp type #${lastSubmittedStampTypeId.toString()} admin access was granted.`,
+            `Stamp type #${lastSubmittedStampTypeId.toString()} admin access was granted.`,
           )
         : t(
-            `鍗扮珷绫诲瀷 #${lastSubmittedStampTypeId.toString()} 鐨勭鐞嗗憳宸叉挙閿€銆俙,
-            `Admin revoked for stamp type #${lastSubmittedStampTypeId.toString()}.`,
+            `Stamp type #${lastSubmittedStampTypeId.toString()} admin access was revoked.`,
+            `Stamp type #${lastSubmittedStampTypeId.toString()} admin access was revoked.`,
           ),
     );
     void loadStampTypeAdminStatus(lastSubmittedStampTypeId, lastSubmittedAdmin);
@@ -286,6 +303,3 @@ export function usePassportStampTypePermissionAdmin(
     statusMessage,
   };
 }
-
-
-

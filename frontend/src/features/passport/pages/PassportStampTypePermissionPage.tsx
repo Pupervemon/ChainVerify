@@ -6,7 +6,9 @@ import {
   PASSPORT_AUTHORITY_ADDRESS,
 } from "../../../config/passport";
 import PassportShell from "../components/PassportShell";
+import PassportTransactionSuccessNotice from "../components/PassportTransactionSuccessNotice";
 import { usePassportStampTypePermissionAdmin } from "../hooks/usePassportStampTypePermissionAdmin";
+import { usePassportTransactionSuccessNotice } from "../hooks/usePassportTransactionSuccessNotice";
 import { usePassportLocale } from "../i18n";
 
 type PassportStampTypePermissionPageProps = {
@@ -40,6 +42,11 @@ export default function PassportStampTypePermissionPage(
     ensureSupportedChain,
     hasCorrectChain,
     isConnected,
+  });
+  const { clearSuccessNotice, successNoticeMessage } = usePassportTransactionSuccessNotice({
+    error,
+    isSubmitting,
+    statusMessage,
   });
 
   const normalizedAdmin = adminAddress.trim();
@@ -80,6 +87,10 @@ export default function PassportStampTypePermissionPage(
 
   return (
     <PassportShell currentKey="stamp-type-admins">
+      <PassportTransactionSuccessNotice
+        message={successNoticeMessage}
+        onClose={clearSuccessNotice}
+      />
       <div className="passport-workbench-body passport-type-admins-page">
         <section className="passport-workbench-panel passport-type-admins-panel panel-surface">
           <div className="passport-workbench-panel__stack">

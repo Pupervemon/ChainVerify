@@ -6,7 +6,9 @@ import {
   PASSPORT_AUTHORITY_ADDRESS,
 } from "../../../config/passport";
 import PassportShell from "../components/PassportShell";
+import PassportTransactionSuccessNotice from "../components/PassportTransactionSuccessNotice";
 import { usePassportRevocationOperatorAdmin } from "../hooks/usePassportRevocationOperatorAdmin";
+import { usePassportTransactionSuccessNotice } from "../hooks/usePassportTransactionSuccessNotice";
 import { usePassportLocale } from "../i18n";
 
 type PassportRevocationOperatorPageProps = {
@@ -39,6 +41,11 @@ export default function PassportRevocationOperatorPage(
     ensureSupportedChain,
     hasCorrectChain,
     isConnected,
+  });
+  const { clearSuccessNotice, successNoticeMessage } = usePassportTransactionSuccessNotice({
+    error,
+    isSubmitting,
+    statusMessage,
   });
 
   const normalizedOperator = operatorAddress.trim();
@@ -78,6 +85,10 @@ export default function PassportRevocationOperatorPage(
 
   return (
     <PassportShell currentKey="revocation-operators">
+      <PassportTransactionSuccessNotice
+        message={successNoticeMessage}
+        onClose={clearSuccessNotice}
+      />
       <div className="passport-dashboard-body">
         <section className="passport-dashboard-primary panel-surface accent-grid relative overflow-hidden p-8 lg:p-10">
           <div className="passport-dashboard-primary__grid relative">

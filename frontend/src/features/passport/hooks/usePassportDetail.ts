@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { usePublicClient } from "wagmi";
 import { TARGET_CHAIN_ID } from "../../../config/network";
 
@@ -177,7 +177,7 @@ export function usePassportDetail(passportId?: bigint): UsePassportDetailResult 
       setError(
         loadError instanceof Error
           ? loadError.message
-          : t("加载护照数据时发生未知错误�?, "An unknown error occurred while loading passport data."),
+          : t("An unknown error occurred while loading passport data.", "An unknown error occurred while loading passport data."),
       );
     } finally {
       setIsLoading(false);
@@ -197,4 +197,5 @@ export function usePassportDetail(passportId?: bigint): UsePassportDetailResult 
     refresh,
   };
 }
+
 

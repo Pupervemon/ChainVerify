@@ -389,14 +389,22 @@
       gap: 0;
     }
 
-    .passport-dashboard-primary__content .panel-soft,
-    .passport-dashboard-secondary .panel-soft {
+    .passport-dashboard-primary__content .panel-soft {
       position: relative;
       min-height: 112px;
       height: 112px;
       display: flex;
       flex-direction: column;
       justify-content: center;
+    }
+
+    .passport-dashboard-secondary .panel-soft {
+      position: relative;
+      min-height: 0;
+      height: auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
     }
 
     .passport-dashboard-stats-grid {
@@ -1686,6 +1694,17 @@
     border-color: #d1d5db !important;
   }
 
+  .passport-workbench-surfaces-grid {
+    gap: 1rem !important;
+    overflow: visible;
+    background: transparent;
+    border: 0;
+  }
+
+  .passport-workbench-surfaces-grid > .passport-dashboard-notes-card {
+    border: 1px solid #dfe3e8;
+  }
+
   .passport-workbench-primary {
     padding: 32px !important;
   }
@@ -2706,7 +2725,7 @@
   }
 
   .docs-nav-link.is-active {
-    color: #0f172a;
+    color: #7c3aed;
   }
 
   .docs-nav-entry.is-active .docs-nav-link__title {
@@ -3022,6 +3041,24 @@
     white-space: pre;
   }
 
+  @media (min-width: 1024px) {
+    .docs-sidebar__frame {
+      padding-left: 0;
+    }
+
+    .docs-nav-group__toggle,
+    .docs-nav-top-link {
+      padding-left: 0;
+    }
+
+    .docs-nav-list {
+      padding-left: 16px;
+    }
+
+    .docs-nav-link {
+      padding-left: 0;
+    }
+  }
   @media (max-width: 1023px) {
     .docs-page {
       padding: 16px 16px 48px;
@@ -3184,5 +3221,42 @@
 
   .animate-status-pulse-amber {
     animation: status-pulse-amber 2s infinite;
+  }
+  @keyframes passport-notice-drop {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, -56px, 0) scale(0.94);
+      filter: blur(10px);
+    }
+
+    52% {
+      opacity: 1;
+      transform: translate3d(0, 10px, 0) scale(1.01);
+      filter: blur(0);
+    }
+
+    74% {
+      transform: translate3d(0, -4px, 0) scale(1);
+      filter: blur(0);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+      filter: blur(0);
+    }
+  }
+
+  .animate-passport-notice-drop {
+    animation: passport-notice-drop 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    transform-origin: top right;
+    will-change: transform, opacity, filter;
+    backface-visibility: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-passport-notice-drop {
+      animation-duration: 1ms;
+    }
   }
 }

@@ -181,7 +181,7 @@ export default function PassportDashboardPage() {
     {
       description: t(
         "全局、类型和 Passport 范围内的发章授权。",
-        "Issuer authorization across global, type, and passport scope.",
+        "Issuer access across global, type, and passport scope.",
       ),
       href: "/passport/policies",
       icon: ShieldCheck,
@@ -190,7 +190,7 @@ export default function PassportDashboardPage() {
           ? overview.enabledPolicyCount.toString().padStart(2, "0")
           : "--",
       ),
-      title: t("发章授权", "Issuer Authorization"),
+      title: t("发章授权", "Issuer Access"),
       tone: "amber",
     },
     {

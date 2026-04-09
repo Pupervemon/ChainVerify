@@ -1,5 +1,5 @@
-﻿import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { decodeEventLog } from "viem";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { TARGET_CHAIN_ID } from "../../../config/network";
@@ -12,6 +12,7 @@ import {
   PASSPORT_AUTHORITY_ADDRESS,
 } from "../../../config/passport";
 import { usePassportLocale } from "../i18n";
+import { normalizePassportContractError } from "../utils/contractErrors";
 import {
   getPassportRevokeContextQueryKey,
   PASSPORT_READ_CACHE_STALE_TIME,
@@ -85,6 +86,7 @@ export function usePassportRevokeStamp(
     cachedContext?.stampRecord ?? null,
   );
   const [statusMessage, setStatusMessage] = useState("");
+  const latestLoadRequestRef = useRef(0);
 
   const { writeContractAsync, data: txHash, isPending } = useWriteContract();
   const {
@@ -97,16 +99,29 @@ export function usePassportRevokeStamp(
 
   const isSubmitting = isPending || isConfirming;
 
+  const clearLoadedContext = useCallback(() => {
+    setCanRevoke(false);
+    setStampRecord(null);
+    setIsLoadingContext(false);
+  }, []);
+
   const loadContext = useCallback(
     async (stampId: bigint) => {
+      latestLoadRequestRef.current += 1;
+      const requestId = latestLoadRequestRef.current;
+
+      setError("");
+      setStatusMessage("");
+      setRevokedStampId(null);
+
       if (!isConfigured || !address) {
-        setCanRevoke(false);
-        setStampRecord(null);
-        setIsLoadingContext(false);
+        clearLoadedContext();
         return;
       }
 
       if (!publicClient) {
+        clearLoadedContext();
+        setError(t("Public client is not ready.", "Public client is not ready."));
         return;
       }
 
@@ -114,14 +129,18 @@ export function usePassportRevokeStamp(
       const cachedStampContext = queryClient.getQueryData<RevokeContext>(queryKey);
 
       if (cachedStampContext !== undefined) {
+        if (latestLoadRequestRef.current !== requestId) {
+          return;
+        }
+
         setCanRevoke(cachedStampContext.canRevoke);
         setStampRecord(cachedStampContext.stampRecord);
         setIsLoadingContext(false);
       } else {
+        setCanRevoke(false);
+        setStampRecord(null);
         setIsLoadingContext(true);
       }
-
-      setError("");
 
       try {
         const context = await queryClient.fetchQuery({
@@ -150,28 +169,46 @@ export function usePassportRevokeStamp(
           staleTime: PASSPORT_READ_CACHE_STALE_TIME,
         });
 
+        if (latestLoadRequestRef.current !== requestId) {
+          return;
+        }
+
         setCanRevoke(context.canRevoke);
         setStampRecord(context.stampRecord);
       } catch (loadError) {
-        setCanRevoke(false);
-        setStampRecord(null);
+        if (latestLoadRequestRef.current !== requestId) {
+          return;
+        }
+
+        clearLoadedContext();
         setError(
-          loadError instanceof Error
-            ? loadError.message
-            : t("鍔犺浇鍗扮珷鎾ら攢涓婁笅鏂囧け璐ャ€?, "Failed to load stamp revoke context."),
+          normalizePassportContractError(loadError, {
+            contractAddress: CHRONICLE_STAMP_ADDRESS,
+            contractName: "ChronicleStamp",
+            fallback: t(
+              "Failed to load stamp revoke context.",
+              "Failed to load stamp revoke context.",
+            ),
+            t,
+          }),
         );
       } finally {
-        setIsLoadingContext(false);
+        if (latestLoadRequestRef.current === requestId) {
+          setIsLoadingContext(false);
+        }
       }
     },
-    [address, isConfigured, publicClient, queryClient, t],
+    [address, clearLoadedContext, isConfigured, publicClient, queryClient, t],
   );
 
   useEffect(() => {
+    latestLoadRequestRef.current += 1;
+    setError("");
+    setStatusMessage("");
+    setRevokedStampId(null);
+
     if (!isConfigured || !address || initialStampId === null) {
-      setCanRevoke(false);
-      setStampRecord(null);
-      setIsLoadingContext(false);
+      clearLoadedContext();
       return;
     }
 
@@ -182,22 +219,35 @@ export function usePassportRevokeStamp(
     setCanRevoke(cachedStampContext?.canRevoke ?? false);
     setStampRecord(cachedStampContext?.stampRecord ?? null);
     setIsLoadingContext(cachedStampContext === undefined);
-  }, [address, initialStampId, isConfigured, queryClient]);
+  }, [address, clearLoadedContext, initialStampId, isConfigured, queryClient]);
 
   const submitRevokeStamp = useCallback(
     async (stampId: bigint, reasonCID: string) => {
-      if (!isConnected) {
-        setError(t("璇峰厛杩炴帴閽卞寘鍐嶆彁浜ゃ€?, "Connect a wallet before submitting."));
+      if (!isConnected || !address) {
+        setError(
+          t("Connect a wallet before submitting.", "Connect a wallet before submitting."),
+        );
         return;
       }
 
       if (!isConfigured) {
-        setError(t("璧勪骇鎶ょ収鍚堢害灏氭湭閰嶇疆銆?, "Passport contracts are not configured."));
+        setError(
+          t(
+            "Passport contracts are not configured.",
+            "Passport contracts are not configured.",
+          ),
+        );
         return;
       }
 
-      if (!reasonCID.trim()) {
-        setError(t("蹇呴』濉啓鍘熷洜 CID銆?, "Reason CID is required."));
+      const normalizedReasonCID = reasonCID.trim();
+      if (!normalizedReasonCID) {
+        setError(t("Reason CID is required.", "Reason CID is required."));
+        return;
+      }
+
+      if (!publicClient) {
+        setError(t("Public client is not ready.", "Public client is not ready."));
         return;
       }
 
@@ -207,25 +257,55 @@ export function usePassportRevokeStamp(
 
       setError("");
       setRevokedStampId(null);
-      setStatusMessage(t("姝ｅ湪鎻愪氦鍗扮珷鎾ら攢浜ゆ槗...", "Submitting stamp revocation transaction..."));
+      setStatusMessage(
+        t(
+          "Submitting stamp revocation to the chain...",
+          "Submitting stamp revocation to the chain...",
+        ),
+      );
 
       try {
+        const estimatedGas = await publicClient.estimateContractGas({
+          account: address as `0x${string}`,
+          address: CHRONICLE_STAMP_ADDRESS as `0x${string}`,
+          abi: CHRONICLE_STAMP_ABI,
+          functionName: "revokeStamp",
+          args: [stampId, normalizedReasonCID],
+        });
+        const gas = estimatedGas < 21_000n ? 21_000n : estimatedGas + estimatedGas / 5n;
+
         await writeContractAsync({
           address: CHRONICLE_STAMP_ADDRESS as `0x${string}`,
           abi: CHRONICLE_STAMP_ABI,
           functionName: "revokeStamp",
-          args: [stampId, reasonCID.trim()],
+          args: [stampId, normalizedReasonCID],
+          gas,
         });
       } catch (submitError) {
         setStatusMessage("");
         setError(
-          submitError instanceof Error
-            ? submitError.message
-            : t("鎻愪氦鍗扮珷鎾ら攢浜ゆ槗澶辫触銆?, "Failed to submit stamp revocation transaction."),
+          normalizePassportContractError(submitError, {
+            contractAddress: CHRONICLE_STAMP_ADDRESS,
+            contractName: "ChronicleStamp",
+            fallback: t(
+              "Failed to submit stamp revocation transaction.",
+              "Failed to submit stamp revocation transaction.",
+            ),
+            t,
+          }),
         );
       }
     },
-    [ensureSupportedChain, hasCorrectChain, isConfigured, isConnected, writeContractAsync],
+    [
+      address,
+      ensureSupportedChain,
+      hasCorrectChain,
+      isConfigured,
+      isConnected,
+      publicClient,
+      t,
+      writeContractAsync,
+    ],
   );
 
   useEffect(() => {
@@ -252,13 +332,45 @@ export function usePassportRevokeStamp(
       }
     }
 
+    if (address && parsedStampId !== null) {
+      const queryKey = getPassportRevokeContextQueryKey(address, parsedStampId);
+
+      queryClient.setQueryData<RevokeContext>(queryKey, (cachedStampContext) => {
+        if (!cachedStampContext?.stampRecord) {
+          return cachedStampContext;
+        }
+
+        return {
+          ...cachedStampContext,
+          stampRecord:
+            cachedStampContext.stampRecord.stampId === parsedStampId
+              ? {
+                  ...cachedStampContext.stampRecord,
+                  revoked: true,
+                }
+              : cachedStampContext.stampRecord,
+        };
+      });
+    }
+
     setRevokedStampId(parsedStampId);
+    setStampRecord((currentRecord) =>
+      currentRecord && parsedStampId !== null && currentRecord.stampId === parsedStampId
+        ? {
+            ...currentRecord,
+            revoked: true,
+          }
+        : currentRecord,
+    );
     setStatusMessage(
       parsedStampId !== null
-        ? t(`鍗扮珷 #${parsedStampId.toString()} 鎾ら攢鎴愬姛銆俙, `Stamp #${parsedStampId.toString()} revoked successfully.`)
-        : t("鍗扮珷鎾ら攢浜ゆ槗宸茬‘璁ゃ€?, "Stamp revocation confirmed."),
+        ? t(
+            `Stamp #${parsedStampId.toString()} was revoked on-chain.`,
+            `Stamp #${parsedStampId.toString()} was revoked on-chain.`,
+          )
+        : t("Stamp revocation was confirmed on-chain.", "Stamp revocation was confirmed on-chain."),
     );
-  }, [isConfirmed, receipt]);
+  }, [address, isConfirmed, queryClient, receipt, t]);
 
   useEffect(() => {
     if (!isTxError || !txError) {
@@ -266,8 +378,18 @@ export function usePassportRevokeStamp(
     }
 
     setStatusMessage("");
-    setError(txError.message);
-  }, [isTxError, txError]);
+    setError(
+      normalizePassportContractError(txError, {
+        contractAddress: CHRONICLE_STAMP_ADDRESS,
+        contractName: "ChronicleStamp",
+        fallback: t(
+          "Failed to submit stamp revocation transaction.",
+          "Failed to submit stamp revocation transaction.",
+        ),
+        t,
+      }),
+    );
+  }, [isTxError, t, txError]);
 
   return {
     canRevoke,
@@ -282,5 +404,6 @@ export function usePassportRevokeStamp(
     submitRevokeStamp,
   };
 }
+
 
 

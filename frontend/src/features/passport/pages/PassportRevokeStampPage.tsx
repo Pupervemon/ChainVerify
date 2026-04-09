@@ -4,7 +4,9 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import CidComposer from "../components/CidComposer";
 import PassportShell from "../components/PassportShell";
+import PassportTransactionSuccessNotice from "../components/PassportTransactionSuccessNotice";
 import { usePassportRevokeStamp } from "../hooks/usePassportRevokeStamp";
+import { usePassportTransactionSuccessNotice } from "../hooks/usePassportTransactionSuccessNotice";
 import { usePassportLocale } from "../i18n";
 import { CID_PRESET_BY_KEY } from "../utils/cidPresets";
 
@@ -21,7 +23,8 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
   const { connectedAddress, ensureSupportedChain, hasCorrectChain, isConnected } = props;
   const { t } = usePassportLocale();
   const [searchParams] = useSearchParams();
-  const [stampId, setStampId] = useState(searchParams.get("stampId") || "");
+  const prefilledStampId = searchParams.get("stampId") || "";
+  const [stampId, setStampId] = useState(prefilledStampId);
   const [reasonCID, setReasonCID] = useState("");
   const parsedStampId = useMemo(
     () => (/^\d+$/.test(stampId.trim()) ? BigInt(stampId.trim()) : null),
@@ -45,6 +48,15 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
     initialStampId: parsedStampId,
     isConnected,
   });
+  const { clearSuccessNotice, successNoticeMessage } = usePassportTransactionSuccessNotice({
+    error,
+    isSubmitting,
+    statusMessage,
+  });
+
+  useEffect(() => {
+    setStampId(prefilledStampId);
+  }, [prefilledStampId]);
 
   useEffect(() => {
     if (parsedStampId === null) {
@@ -54,21 +66,109 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
     void loadContext(parsedStampId);
   }, [loadContext, parsedStampId]);
 
-  const connectedWalletLabel = connectedAddress || t("Not connected", "Not connected");
-  const accessLabel = isLoadingContext
-    ? t("Checking", "Checking")
-    : canRevoke
-      ? t("Authorized Revoker", "Authorized Revoker")
-      : t("Permission Required", "Permission Required");
-  const accessToneClass = isLoadingContext
-    ? "text-slate-500"
-    : canRevoke
-      ? "text-emerald-700"
-      : "text-amber-700";
+  const hasStampIdInput = stampId.trim().length > 0;
   const hasReasonCid = reasonCID.trim().length > 0;
+  const hasSelectedStamp = parsedStampId !== null;
+  const hasResolvedContext = stampRecord !== null;
+  const isStampAlreadyRevoked = stampRecord?.revoked === true;
+  const stampIdInputError =
+    hasStampIdInput && parsedStampId === null
+      ? t(
+          "Stamp ID must be a positive integer.",
+          "Stamp ID must be a positive integer.",
+        )
+      : "";
+  const canSubmitRevoke =
+    hasSelectedStamp &&
+    isConnected &&
+    hasCorrectChain &&
+    isConfigured &&
+    !isLoadingContext &&
+    hasResolvedContext &&
+    !isStampAlreadyRevoked &&
+    canRevoke &&
+    hasReasonCid &&
+    !isSubmitting;
+  const accessLabel = !isConnected
+    ? t("Wallet Required", "Wallet Required")
+    : !hasCorrectChain
+      ? t("Wrong Network", "Wrong Network")
+      : !isConfigured
+        ? t("Contracts Missing", "Contracts Missing")
+        : !hasStampIdInput
+          ? t("Stamp ID Required", "Stamp ID Required")
+          : parsedStampId === null
+            ? t("Invalid Stamp ID", "Invalid Stamp ID")
+            : isLoadingContext
+              ? t("Checking", "Checking")
+              : !hasResolvedContext
+                ? t("Context Unavailable", "Context Unavailable")
+                : isStampAlreadyRevoked
+                  ? t("Already Revoked", "Already Revoked")
+                  : canRevoke
+                    ? t("Authorized Revoker", "Authorized Revoker")
+                    : t("Permission Required", "Permission Required");
+  const accessHint = !isConnected
+    ? t(
+        "Connect a wallet before loading revocation context.",
+        "Connect a wallet before loading revocation context.",
+      )
+    : !hasCorrectChain
+      ? t(
+          "Switch to the supported network before revoking a stamp.",
+          "Switch to the supported network before revoking a stamp.",
+        )
+      : !isConfigured
+        ? t(
+            "Passport contracts are not configured in the frontend environment.",
+            "Passport contracts are not configured in the frontend environment.",
+          )
+        : !hasStampIdInput
+          ? t(
+              "Enter a stamp ID to load revocation context.",
+              "Enter a stamp ID to load revocation context.",
+            )
+          : parsedStampId === null
+            ? stampIdInputError
+            : isLoadingContext
+              ? t(
+                  "Loading the selected stamp record and revoke permission.",
+                  "Loading the selected stamp record and revoke permission.",
+                )
+              : !hasResolvedContext
+                ? t(
+                    "The selected stamp could not be loaded from chain data.",
+                    "The selected stamp could not be loaded from chain data.",
+                  )
+                : isStampAlreadyRevoked
+                  ? t(
+                      "This stamp has already been revoked and cannot be revoked again.",
+                      "This stamp has already been revoked and cannot be revoked again.",
+                    )
+                  : !canRevoke
+                    ? t(
+                        "This wallet is not authorized to revoke the selected stamp.",
+                        "This wallet is not authorized to revoke the selected stamp.",
+                      )
+                    : t(
+                        "This wallet can revoke the selected stamp.",
+                        "This wallet can revoke the selected stamp.",
+                      );
+  const accessToneClass =
+    accessLabel === t("Authorized Revoker", "Authorized Revoker")
+      ? "text-emerald-700"
+      : accessLabel === t("Checking", "Checking")
+        ? "text-slate-500"
+        : accessLabel === t("Already Revoked", "Already Revoked")
+          ? "text-rose-700"
+          : "text-amber-700";
 
   return (
     <PassportShell currentKey="revoke">
+      <PassportTransactionSuccessNotice
+        message={successNoticeMessage}
+        onClose={clearSuccessNotice}
+      />
       <div className="passport-dashboard-body">
         <section className="passport-dashboard-primary panel-surface accent-grid relative overflow-hidden p-8 lg:p-10">
           <div className="passport-dashboard-primary__grid relative">
@@ -103,7 +203,7 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
                     </p>
                   </div>
                   <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
-                    {connectedWalletLabel}
+                    {accessHint}
                   </p>
                 </div>
 
@@ -117,7 +217,9 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
                   <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
                     {stampRecord
                       ? `Stamp #${stampRecord.stampId.toString()}`
-                      : t("No stamp loaded", "No stamp loaded")}
+                      : isLoadingContext
+                        ? t("Loading stamp context", "Loading stamp context")
+                        : t("No stamp loaded", "No stamp loaded")}
                   </p>
                 </div>
 
@@ -129,11 +231,15 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
                         ? stampRecord.revoked
                           ? t("Already revoked", "Already revoked")
                           : t("Effective / revocable", "Effective / revocable")
-                        : "--"}
+                        : isLoadingContext
+                          ? t("Loading", "Loading")
+                          : "--"}
                     </p>
                   </div>
                   <p className="passport-dashboard-stat-card__hint mt-3 font-medium text-slate-900">
-                    Reason CID required
+                    {hasReasonCid
+                      ? t("Reason CID ready", "Reason CID ready")
+                      : t("Reason CID required", "Reason CID required")}
                   </p>
                 </div>
               </div>
@@ -164,6 +270,9 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
                   placeholder="1"
                   className="passport-dashboard-query__input mt-3 h-12 font-mono"
                 />
+                {stampIdInputError ? (
+                  <p className="mt-3 text-sm font-medium text-rose-700">{stampIdInputError}</p>
+                ) : null}
               </div>
 
               <div className="panel-soft p-5">
@@ -197,7 +306,7 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
 
                     void submitRevokeStamp(parsedStampId, reasonCID);
                   }}
-                  disabled={parsedStampId === null || !canRevoke || isSubmitting || !hasReasonCid}
+                  disabled={!canSubmitRevoke}
                   className="passport-action-button passport-action-button--primary"
                 >
                   <Undo2 size={16} />
@@ -298,7 +407,9 @@ export default function PassportRevokeStampPage(props: PassportRevokeStampPagePr
                 </div>
               ) : null}
 
-              {revokedStampId !== null && stampRecord ? (
+              {revokedStampId !== null &&
+              stampRecord &&
+              stampRecord.stampId === revokedStampId ? (
                 <Link
                   to={`/passport/${stampRecord.passportId.toString()}`}
                   className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-rose-600 transition-colors hover:text-rose-700"

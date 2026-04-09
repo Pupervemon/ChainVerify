@@ -7,8 +7,10 @@ import {
   PASSPORT_AUTHORITY_ADDRESS,
 } from "../../../config/passport";
 import PassportShell from "../components/PassportShell";
+import PassportTransactionSuccessNotice from "../components/PassportTransactionSuccessNotice";
 import { usePassportCreatorAdmin } from "../hooks/usePassportCreatorAdmin";
 import { usePassportCreatorList } from "../hooks/usePassportCreatorList";
+import { usePassportTransactionSuccessNotice } from "../hooks/usePassportTransactionSuccessNotice";
 import { usePassportLocale } from "../i18n";
 
 type PassportAdminPageProps = {
@@ -41,6 +43,11 @@ export default function PassportAdminPage(props: PassportAdminPageProps) {
     ensureSupportedChain,
     hasCorrectChain,
     isConnected,
+  });
+  const { clearSuccessNotice, successNoticeMessage } = usePassportTransactionSuccessNotice({
+    error,
+    isSubmitting,
+    statusMessage,
   });
   const {
     creators,
@@ -105,6 +112,10 @@ export default function PassportAdminPage(props: PassportAdminPageProps) {
 
   return (
     <PassportShell currentKey="admin">
+      <PassportTransactionSuccessNotice
+        message={successNoticeMessage}
+        onClose={clearSuccessNotice}
+      />
       <div className="passport-dashboard-body">
         <section className="passport-dashboard-primary panel-surface accent-grid relative overflow-hidden p-8 lg:p-10">
           <div className="passport-dashboard-primary__grid relative">

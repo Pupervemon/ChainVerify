@@ -1,4 +1,4 @@
-﻿import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
@@ -111,7 +111,10 @@ export function usePassportRevocationOperatorAdmin(
       setError(
         loadError instanceof Error
           ? loadError.message
-          : t("鍔犺浇 PassportAuthority owner 澶辫触銆?, "Failed to load PassportAuthority owner."),
+          : t(
+              "Failed to load PassportAuthority owner.",
+              "Failed to load PassportAuthority owner.",
+            ),
       );
     } finally {
       setIsLoadingAuthorityOwner(false);
@@ -142,29 +145,39 @@ export function usePassportRevocationOperatorAdmin(
         setError(
           loadError instanceof Error
             ? loadError.message
-            : t("鍔犺浇鎾ら攢鎿嶄綔鍛樼姸鎬佸け璐ャ€?, "Failed to load revocation operator status."),
+            : t(
+                "Failed to load revocation operator status.",
+                "Failed to load revocation operator status.",
+              ),
         );
       } finally {
         setIsCheckingOperator(false);
       }
     },
-    [isConfigured, publicClient],
+    [isConfigured, publicClient, t],
   );
 
   const setRevocationOperator = useCallback(
     async (operatorAddress: string, enabled: boolean) => {
       if (!isConnected || !address) {
-        setError(t("璇峰厛杩炴帴閽卞寘鍐嶆彁浜ゃ€?, "Connect a wallet before submitting."));
+        setError(
+          t("Connect a wallet before submitting.", "Connect a wallet before submitting."),
+        );
         return;
       }
 
       if (!isConfigured) {
-        setError(t("璧勪骇鎶ょ収鍚堢害灏氭湭閰嶇疆銆?, "Passport contracts are not configured."));
+        setError(
+          t(
+            "Passport contracts are not configured.",
+            "Passport contracts are not configured.",
+          ),
+        );
         return;
       }
 
       if (!isPassportAddress(operatorAddress)) {
-        setError(t("璇疯緭鍏ユ湁鏁堢殑鎿嶄綔鍛樺湴鍧€銆?, "Enter a valid operator address."));
+        setError(t("Enter a valid operator address.", "Enter a valid operator address."));
         return;
       }
 
@@ -176,12 +189,12 @@ export function usePassportRevocationOperatorAdmin(
       setStatusMessage(
         enabled
           ? t(
-              "姝ｅ湪鎻愪氦鎾ら攢鎿嶄綔鍛樻巿鏉冧氦鏄?..",
-              "Submitting revocation-operator grant transaction...",
+              "Submitting revocation operator grant...",
+              "Submitting revocation operator grant...",
             )
           : t(
-              "姝ｅ湪鎻愪氦鎾ら攢鎿嶄綔鍛樻挙閿€浜ゆ槗...",
-              "Submitting revocation-operator revoke transaction...",
+              "Submitting revocation operator revocation...",
+              "Submitting revocation operator revocation...",
             ),
       );
       setLastSubmittedEnabled(enabled);
@@ -200,7 +213,7 @@ export function usePassportRevocationOperatorAdmin(
           submitError instanceof Error
             ? submitError.message
             : t(
-                "鎻愪氦鎾ら攢鎿嶄綔鍛樻潈闄愪氦鏄撳け璐ャ€?,
+                "Failed to submit revocation operator permission transaction.",
                 "Failed to submit revocation operator permission transaction.",
               ),
         );
@@ -212,6 +225,7 @@ export function usePassportRevocationOperatorAdmin(
       hasCorrectChain,
       isConfigured,
       isConnected,
+      t,
       writeContractAsync,
     ],
   );
@@ -240,8 +254,14 @@ export function usePassportRevocationOperatorAdmin(
 
     setStatusMessage(
       lastSubmittedEnabled
-        ? t("鎾ら攢鎿嶄綔鍛樻巿鏉冩垚鍔熴€?, "Revocation operator granted successfully.")
-        : t("鎾ら攢鎿嶄綔鍛樻挙閿€鎴愬姛銆?, "Revocation operator revoked successfully."),
+        ? t(
+            "Revocation operator access was granted.",
+            "Revocation operator access was granted.",
+          )
+        : t(
+            "Revocation operator access was revoked.",
+            "Revocation operator access was revoked.",
+          ),
     );
     void loadRevocationOperatorStatus(lastSubmittedOperator);
   }, [
@@ -275,6 +295,3 @@ export function usePassportRevocationOperatorAdmin(
     statusMessage,
   };
 }
-
-
-

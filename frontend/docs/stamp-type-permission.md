@@ -70,7 +70,7 @@
 所以要区分清楚：
 
 - `stamp type admin` 管的是“类型定义”和“该类型撤销”
-- `issuer authorization` 管的是“能不能发章”
+- `issuer access` 管的是“能不能发章”
 
 这两条权限线是独立的。
 
@@ -205,7 +205,7 @@
 
 应该去：
 
-- `Issuer Authorization`
+- `Issuer Access`
 
 ## 10. 当前页面的边界和注意事项
 

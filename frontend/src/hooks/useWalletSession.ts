@@ -17,7 +17,7 @@ import {
   TARGET_CHAIN_NAME,
 } from "../config/network";
 import type { ToastState } from "../types/toast";
-import { wagmiConfig } from "../wagmi";
+import { clearWalletSessionStorage, wagmiConfig } from "../wagmi";
 
 type UseWalletSessionOptions = {
   onStatusChange?: (toast: ToastState | null) => void;
@@ -36,7 +36,7 @@ type WalletConnectorWithDetails = {
 export function useWalletSession(options: UseWalletSessionOptions = {}) {
   const { onStatusChange, onWalletConnected } = options;
   const { isConnected, address, connector: activeConnector } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { disconnectAsync, isPending: isDisconnecting } = useDisconnect();
   const { openConnectModal } = useConnectModal();
   const chainId = useChainId();
   const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain();
@@ -147,31 +147,20 @@ export function useWalletSession(options: UseWalletSessionOptions = {}) {
     return message || `Failed to switch wallet network to ${TARGET_CHAIN_NAME}.`;
   }, []);
 
-  const revokeWalletAuthorization = useCallback(async () => {
-    if (typeof window === "undefined") {
-      return;
+  const disconnectWallet = useCallback(async () => {
+    setIsAccountMenuOpen(false);
+
+    try {
+      await disconnectAsync();
+    } catch (error) {
+      onStatusChange?.({
+        message: error instanceof Error ? error.message : "Failed to disconnect wallet.",
+        variant: "error",
+      });
+    } finally {
+      clearWalletSessionStorage();
     }
-
-    const provider = (window as Window & {
-      ethereum?: {
-        request?: (args: {
-          method: string;
-          params?: unknown[] | object;
-        }) => Promise<unknown>;
-      };
-    }).ethereum;
-
-    if (!provider?.request) {
-      return;
-    }
-
-    await Promise.allSettled([
-      provider.request({
-        method: "wallet_revokePermissions",
-        params: [{ eth_accounts: {} }],
-      }),
-    ]);
-  }, []);
+  }, [disconnectAsync, onStatusChange]);
 
   const ensureSupportedChain = useCallback(async () => {
     if (!isConnected || chainId === TARGET_CHAIN.id) {
@@ -238,6 +227,7 @@ export function useWalletSession(options: UseWalletSessionOptions = {}) {
       setIsAccountMenuOpen(false);
       setDisplayAddress("");
       window.localStorage.removeItem(LAST_WALLET_ADDRESS_KEY);
+      clearWalletSessionStorage();
       onStatusChange?.(null);
     },
   });
@@ -250,14 +240,14 @@ export function useWalletSession(options: UseWalletSessionOptions = {}) {
     connectedAddress,
     currentChainId: chainId,
     currentChainName,
-    disconnect,
+    disconnectWallet,
     ensureSupportedChain,
     hasCorrectChain,
     isAccountMenuOpen,
     isConnected,
+    isDisconnecting,
     isSwitchingChain,
     openConnectModal,
-    revokeWalletAuthorization,
     setIsAccountMenuOpen,
     targetChainId: TARGET_CHAIN.id,
     targetChainName: TARGET_CHAIN_NAME,

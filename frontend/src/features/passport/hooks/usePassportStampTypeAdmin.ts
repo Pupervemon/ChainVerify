@@ -283,7 +283,7 @@ export function usePassportStampTypeAdmin(
       }
 
       setError("");
-      setStatusMessage(t("Submitting stamp type configuration transaction...", "Submitting stamp type configuration transaction..."));
+      setStatusMessage(t("Submitting stamp type configuration update...", "Submitting stamp type configuration update..."));
       setLastConfiguredStampTypeId(stampTypeId);
 
       try {
@@ -332,8 +332,8 @@ export function usePassportStampTypeAdmin(
 
     setStatusMessage(
       t(
-        `Stamp type #${lastConfiguredStampTypeId.toString()} configured successfully.`,
-        `Stamp type #${lastConfiguredStampTypeId.toString()} configured successfully.`,
+        `Stamp type #${lastConfiguredStampTypeId.toString()} configuration was updated on-chain.`,
+        `Stamp type #${lastConfiguredStampTypeId.toString()} configuration was updated on-chain.`,
       ),
     );
     queryClient.removeQueries({ queryKey: getPassportIssueContextQueryPrefix() });

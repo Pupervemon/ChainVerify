@@ -74,14 +74,14 @@ function App() {
     blockNumber,
     connectedAddress,
     currentChainName,
-    disconnect,
+    disconnectWallet,
     ensureSupportedChain,
     hasCorrectChain,
     isAccountMenuOpen,
     isConnected,
+    isDisconnecting,
     isSwitchingChain,
     openConnectModal,
-    revokeWalletAuthorization,
     setIsAccountMenuOpen,
     targetChainName,
     truncateAddress,
@@ -171,13 +171,10 @@ function App() {
           connectedAddress={connectedAddress}
           isAccountMenuOpen={isAccountMenuOpen}
           isConnected={isConnected}
+          isDisconnecting={isDisconnecting}
           navSearchQuery={navSearchQuery}
           onConnect={() => openConnectModal?.()}
-          onDisconnect={async () => {
-            await revokeWalletAuthorization();
-            disconnect();
-            setIsAccountMenuOpen(false);
-          }}
+          onDisconnect={disconnectWallet}
           onNavSearchQueryChange={setNavSearchQuery}
           onToggleAccountMenu={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
           pathname={location.pathname}

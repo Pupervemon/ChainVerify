@@ -171,15 +171,15 @@ const DOC_ENTRIES: DocEntry[] = [
   {
     slug: "issuer-authorization",
     title: {
-      zh: "签发授权",
-      en: "Issuer Authorization",
+      zh: "发章授权",
+      en: "Issuer Access",
     },
     navLabel: {
-      zh: "签发授权",
-      en: "Issuer Authorization",
+      zh: "发章授权",
+      en: "Issuer Access",
     },
     description: {
-      zh: "说明全局、按类型、按 Passport 范围的签发授权模型。",
+      zh: "说明全局、按类型、按 Passport 范围的发章授权模型。",
       en: "Global, type, and passport-scoped issuance policies.",
     },
     group: "governance",
@@ -579,9 +579,7 @@ export default function DocsPage() {
   const articleBlocks =
     blocks[0]?.type === "heading" && blocks[0].level === 1 ? blocks.slice(1) : blocks;
   const currentOutline = currentDoc ? (DOC_OUTLINE_MAP.get(currentDoc.slug) ?? []) : [];
-  const [expandedGroups, setExpandedGroups] = useState<DocGroupKey[]>(
-    () => DOC_GROUPS.map((group) => group.key),
-  );
+  const [expandedGroups, setExpandedGroups] = useState<DocGroupKey[]>(() => []);
   const [activeHeadingId, setActiveHeadingId] = useState<string>("");
   const currentDocTitle = currentDoc ? resolveLocalizedText(currentDoc.title, t) : "";
   const currentDocNavLabel = currentDoc ? resolveLocalizedText(currentDoc.navLabel, t) : "";

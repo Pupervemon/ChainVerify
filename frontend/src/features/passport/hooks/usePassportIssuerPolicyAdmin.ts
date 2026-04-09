@@ -1,5 +1,5 @@
-﻿import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
 import { TARGET_CHAIN_ID } from "../../../config/network";
@@ -60,6 +60,7 @@ type UsePassportIssuerPolicyAdminResult = {
   isLoadingAuthorityOwner: boolean;
   isLoadingPolicy: boolean;
   isSubmitting: boolean;
+  lastLoadedQuery: PolicyQuery | null;
   lastConfirmedTxHash: string;
   loadPolicyContext: (query: PolicyQuery) => Promise<void>;
   passportAllowlistMode: boolean | null;
@@ -90,6 +91,7 @@ export function usePassportIssuerPolicyAdmin(
   const [passportAllowlistMode, setPassportAllowlistModeState] = useState<boolean | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [statusMessage, setStatusMessage] = useState("");
+  const loadRequestIdRef = useRef(0);
 
   const { writeContractAsync, data: txHash, isPending } = useWriteContract();
   const {
@@ -144,7 +146,7 @@ export function usePassportIssuerPolicyAdmin(
       setError(
         loadError instanceof Error
           ? loadError.message
-          : t("鍔犺浇 PassportAuthority owner 澶辫触銆?, "Failed to load PassportAuthority owner."),
+          : t("Failed to load PassportAuthority owner.", "Failed to load PassportAuthority owner."),
       );
     } finally {
       setIsLoadingAuthorityOwner(false);
@@ -153,9 +155,13 @@ export function usePassportIssuerPolicyAdmin(
 
   const loadPolicyContext = useCallback(
     async (query: PolicyQuery) => {
+      const requestId = loadRequestIdRef.current + 1;
+      loadRequestIdRef.current = requestId;
+
       if (!publicClient || !isConfigured || !isPassportAddress(query.issuerAddress)) {
         setCurrentPolicy(null);
         setPassportAllowlistModeState(null);
+        setLastLoadedQuery(null);
         return;
       }
 
@@ -200,38 +206,49 @@ export function usePassportIssuerPolicyAdmin(
             : Promise.resolve(null),
         ]);
 
+        if (loadRequestIdRef.current !== requestId) {
+          return;
+        }
+
         setCurrentPolicy(policy);
         setPassportAllowlistModeState(allowlistMode);
         setLastLoadedQuery(query);
       } catch (loadError) {
+        if (loadRequestIdRef.current !== requestId) {
+          return;
+        }
+
         setCurrentPolicy(null);
         setPassportAllowlistModeState(null);
+        setLastLoadedQuery(null);
         setError(
           loadError instanceof Error
             ? loadError.message
-            : t("鍔犺浇鍙戠珷鎺堟潈涓婁笅鏂囧け璐ャ€?, "Failed to load issuer authorization context."),
+            : t("Failed to load issuer access context.", "Failed to load issuer access context."),
         );
       } finally {
-        setIsLoadingPolicy(false);
+        if (loadRequestIdRef.current === requestId) {
+          setIsLoadingPolicy(false);
+        }
       }
     },
-    [isConfigured, publicClient],
+    [isConfigured, publicClient, t],
   );
 
   const setIssuerPolicy = useCallback(
     async (query: PolicyQuery, policy: IssuerPolicyRecord) => {
       if (!isConnected || !address) {
-        setError(t("璇峰厛杩炴帴閽卞寘鍐嶆彁浜ゃ€?, "Connect a wallet before submitting."));
+        setError(t("Connect a wallet before submitting.", "Connect a wallet before submitting."));
         return;
       }
 
       if (!isConfigured) {
-        setError(t("璧勪骇鎶ょ収鍚堢害灏氭湭閰嶇疆銆?, "Passport contracts are not configured."));
+        setError(t("Passport contracts are not configured.", "Passport contracts are not configured."));
         return;
       }
 
       if (!isPassportAddress(query.issuerAddress)) {
-        setError(t("璇疯緭鍏ユ湁鏁堢殑鍙戣鏂瑰湴鍧€銆?, "Enter a valid issuer address."));
+        setError(t("Enter a valid issuer address.", "Enter a valid issuer address."));
         return;
       }
 
@@ -240,7 +257,7 @@ export function usePassportIssuerPolicyAdmin(
       }
 
       setError("");
-      setStatusMessage(t("姝ｅ湪鎻愪氦鍙戠珷鎺堟潈浜ゆ槗...", "Submitting issuer authorization transaction..."));
+      setStatusMessage(t("Submitting issuer access update...", "Submitting issuer access update..."));
       setPendingAction({ kind: "policy", query });
 
       const policyArgs = {
@@ -280,7 +297,7 @@ export function usePassportIssuerPolicyAdmin(
         setError(
           submitError instanceof Error
             ? submitError.message
-            : t("鎻愪氦鍙戠珷鎺堟潈浜ゆ槗澶辫触銆?, "Failed to submit issuer authorization transaction."),
+            : t("Failed to submit issuer access transaction.", "Failed to submit issuer access transaction."),
         );
       }
     },
@@ -290,6 +307,7 @@ export function usePassportIssuerPolicyAdmin(
       hasCorrectChain,
       isConfigured,
       isConnected,
+      t,
       writeContractAsync,
     ],
   );
@@ -297,12 +315,12 @@ export function usePassportIssuerPolicyAdmin(
   const setPassportAllowlistMode = useCallback(
     async (passportId: bigint, enabled: boolean) => {
       if (!isConnected || !address) {
-        setError(t("璇峰厛杩炴帴閽卞寘鍐嶆彁浜ゃ€?, "Connect a wallet before submitting."));
+        setError(t("Connect a wallet before submitting.", "Connect a wallet before submitting."));
         return;
       }
 
       if (!isConfigured) {
-        setError(t("璧勪骇鎶ょ収鍚堢害灏氭湭閰嶇疆銆?, "Passport contracts are not configured."));
+        setError(t("Passport contracts are not configured.", "Passport contracts are not configured."));
         return;
       }
 
@@ -314,12 +332,12 @@ export function usePassportIssuerPolicyAdmin(
       setStatusMessage(
         enabled
           ? t(
-              "姝ｅ湪鎻愪氦寮€鍚?Passport 鐧藉悕鍗曞己鍒舵ā寮忎氦鏄?..",
-              "Submitting transaction to enable passport allowlist enforcement...",
+              "Submitting allowlist enforcement enable...",
+              "Submitting allowlist enforcement enable...",
             )
           : t(
-              "姝ｅ湪鎻愪氦鍏抽棴 Passport 鐧藉悕鍗曞己鍒舵ā寮忎氦鏄?..",
-              "Submitting transaction to disable passport allowlist enforcement...",
+              "Submitting allowlist enforcement disable...",
+              "Submitting allowlist enforcement disable...",
             ),
       );
       setPendingAction({ kind: "allowlist", passportId, value: enabled });
@@ -338,7 +356,7 @@ export function usePassportIssuerPolicyAdmin(
           submitError instanceof Error
             ? submitError.message
             : t(
-                "鎻愪氦 Passport 鐧藉悕鍗曞己鍒舵ā寮忎氦鏄撳け璐ャ€?,
+                "Failed to submit passport allowlist enforcement transaction.",
                 "Failed to submit passport allowlist enforcement transaction.",
               ),
         );
@@ -350,6 +368,7 @@ export function usePassportIssuerPolicyAdmin(
       hasCorrectChain,
       isConfigured,
       isConnected,
+      t,
       writeContractAsync,
     ],
   );
@@ -379,25 +398,25 @@ export function usePassportIssuerPolicyAdmin(
     if (pendingAction.kind === "policy") {
       const scopeLabel =
         pendingAction.query.scope === "global"
-          ? t("鍏ㄥ眬", "Global")
+          ? t("Global", "Global")
           : pendingAction.query.scope === "type"
-            ? t("绫诲瀷绾?, "Type")
-            : t("鎶ょ収绾?, "Passport");
+            ? t("Stamp type", "Stamp type")
+            : t("Passport", "Passport");
 
       setStatusMessage(
-        t(`${scopeLabel} 鍙戠珷鎺堟潈鏇存柊鎴愬姛銆俙, `${scopeLabel} issuer authorization updated successfully.`),
+        t(`${scopeLabel} issuer access was updated.`, `${scopeLabel} issuer access was updated.`),
       );
       void loadPolicyContext(pendingAction.query);
     } else {
       setStatusMessage(
         pendingAction.value
           ? t(
-              `Passport #${pendingAction.passportId.toString()} 鐧藉悕鍗曞己鍒舵ā寮忓凡寮€鍚€俙,
-              `Passport #${pendingAction.passportId.toString()} allowlist enforcement enabled.`,
+              `Passport #${pendingAction.passportId.toString()} allowlist enforcement was enabled.`,
+              `Passport #${pendingAction.passportId.toString()} allowlist enforcement was enabled.`,
             )
           : t(
-              `Passport #${pendingAction.passportId.toString()} 鐧藉悕鍗曞己鍒舵ā寮忓凡鍏抽棴銆俙,
-              `Passport #${pendingAction.passportId.toString()} allowlist enforcement disabled.`,
+              `Passport #${pendingAction.passportId.toString()} allowlist enforcement was disabled.`,
+              `Passport #${pendingAction.passportId.toString()} allowlist enforcement was disabled.`,
             ),
       );
 
@@ -432,6 +451,7 @@ export function usePassportIssuerPolicyAdmin(
     isLoadingAuthorityOwner,
     isLoadingPolicy,
     isSubmitting,
+    lastLoadedQuery,
     lastConfirmedTxHash: isConfirmed && txHash ? txHash : "",
     loadPolicyContext,
     passportAllowlistMode,
@@ -440,6 +460,7 @@ export function usePassportIssuerPolicyAdmin(
     statusMessage,
   };
 }
+
 
 
 

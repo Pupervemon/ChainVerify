@@ -1,4 +1,4 @@
-﻿import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { decodeEventLog, zeroAddress } from "viem";
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
@@ -13,6 +13,7 @@ import {
 } from "../../../config/passport";
 import { TARGET_CHAIN_ID, TARGET_CHAIN_NAME } from "../../../config/network";
 import { usePassportLocale } from "../i18n";
+import { deriveAssetFingerprint, normalizeAssetIdentifier } from "../utils/assetFingerprint";
 import {
   getPassportCreatePermissionQueryKey,
   PASSPORT_READ_CACHE_STALE_TIME,
@@ -26,7 +27,7 @@ type UsePassportCreatePassportOptions = {
 };
 
 type CreatePassportForm = {
-  assetFingerprint: `0x${string}`;
+  assetIdentifier: string;
   assetMetadataCID: string;
   initialHolder: `0x${string}`;
   passportMetadataCID: string;
@@ -176,15 +177,19 @@ export function usePassportCreatePassport(
         return;
       }
 
-      if (!/^0x[a-fA-F0-9]{64}$/.test(form.assetFingerprint)) {
+      const normalizedAssetIdentifier = normalizeAssetIdentifier(form.assetIdentifier);
+
+      if (!normalizedAssetIdentifier) {
         setError(
           t(
-            "Asset fingerprint must be a bytes32 hex value.",
-            "Asset fingerprint must be a bytes32 hex value.",
+            "Asset identifier is required to derive the fingerprint.",
+            "Asset identifier is required to derive the fingerprint.",
           ),
         );
         return;
       }
+
+      const assetFingerprint = deriveAssetFingerprint(normalizedAssetIdentifier);
 
       if (!form.passportMetadataCID.trim()) {
         setError(t("Passport Metadata CID is required.", "Passport Metadata CID is required."));
@@ -205,8 +210,8 @@ export function usePassportCreatePassport(
       setCreatedSubjectAccount("");
       setStatusMessage(
         t(
-          "Submitting passport creation transaction...",
-          "Submitting passport creation transaction...",
+          "Submitting passport creation to the chain...",
+          "Submitting passport creation to the chain...",
         ),
       );
 
@@ -217,7 +222,7 @@ export function usePassportCreatePassport(
           functionName: "createPassport",
           args: [
             {
-              assetFingerprint: form.assetFingerprint,
+              assetFingerprint,
               passportMetadataCID: form.passportMetadataCID,
               assetMetadataCID: form.assetMetadataCID,
               initialHolder: form.initialHolder,
@@ -302,10 +307,10 @@ export function usePassportCreatePassport(
     setStatusMessage(
       parsedPassportId !== null
         ? t(
-            `Passport #${parsedPassportId.toString()} created successfully.`,
-            `Passport #${parsedPassportId.toString()} created successfully.`,
+            `Passport #${parsedPassportId.toString()} was created on-chain.`,
+            `Passport #${parsedPassportId.toString()} was created on-chain.`,
           )
-        : t("Passport creation confirmed.", "Passport creation confirmed."),
+        : t("Passport creation was confirmed on-chain.", "Passport creation was confirmed on-chain."),
     );
   }, [isConfirmed, receipt, t]);
 

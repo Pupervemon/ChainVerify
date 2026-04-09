@@ -5,7 +5,9 @@ import { Link, useSearchParams } from "react-router-dom";
 import { CHRONICLE_STAMP_ADDRESS } from "../../../config/passport";
 import CidComposer from "../components/CidComposer";
 import PassportShell from "../components/PassportShell";
+import PassportTransactionSuccessNotice from "../components/PassportTransactionSuccessNotice";
 import { usePassportIssueStamp } from "../hooks/usePassportIssueStamp";
+import { usePassportTransactionSuccessNotice } from "../hooks/usePassportTransactionSuccessNotice";
 import { usePassportLocale } from "../i18n";
 import { CID_PRESET_BY_KEY } from "../utils/cidPresets";
 
@@ -89,6 +91,11 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
     initialStampTypeId: parsedStampTypeId,
     isConnected,
   });
+  const { clearSuccessNotice, successNoticeMessage } = usePassportTransactionSuccessNotice({
+    error,
+    isSubmitting,
+    statusMessage,
+  });
   const configuredTypeEmptyState = useMemo(() => {
     if (isLoadingAvailableStampTypes || availableStampTypes.length > 0) {
       return "";
@@ -126,6 +133,7 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
 
   const hasSelectedContext = parsedPassportId !== null && parsedStampTypeId !== null;
   const hasMetadataCid = metadataCID.trim().length > 0;
+  const occurredAtTimestamp = toUnixSeconds(occurredAt);
   const normalizedPassportStatus =
     passportStatus === null ? null : Number(passportStatus);
   const hasResolvedAccessContext = passportExists !== null && stampType !== null;
@@ -180,6 +188,13 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
           )
       : "");
   const hasSupersedesValidationError = Boolean(supersedesInputError || singletonSupersedesError);
+  const occurredAtValidationMessage = !occurredAt.trim()
+    ? t("请选择发生时间。", "Occurred At is required.")
+    : occurredAtTimestamp <= 0
+      ? t("发生时间无效，请重新选择。", "Occurred At must be a valid date and time.")
+      : occurredAtTimestamp > Math.floor(Date.now() / 1000)
+        ? t("发生时间不能晚于当前时间。", "Occurred At cannot be in the future.")
+        : "";
   const canSubmitIssue =
     hasSelectedContext &&
     isConnected &&
@@ -187,6 +202,7 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
     isConfigured &&
     !isLoadingPermission &&
     hasMetadataCid &&
+    !occurredAtValidationMessage &&
     parsedSupersedesStampId !== null &&
     canIssue &&
     isPassportActive &&
@@ -219,6 +235,88 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                       : hasSupersedesValidationError
                         ? t("Supersedes Required", "Supersedes Required")
                         : t("Authorized Issuer", "Authorized Issuer");
+  const accessHint = !isConnected
+    ? t(
+        "Connect a wallet before loading stamp issuance context.",
+        "Connect a wallet before loading stamp issuance context.",
+      )
+    : !hasCorrectChain
+      ? t(
+          `Switch to ${targetChainName} before issuing a stamp.`,
+          `Switch to ${targetChainName} before issuing a stamp.`,
+        )
+      : !isConfigured
+        ? t(
+            "Passport contracts are not configured in the frontend environment.",
+            "Passport contracts are not configured in the frontend environment.",
+          )
+        : !hasSelectedContext
+          ? t(
+              "Enter both Passport ID and Stamp Type ID to load issuance context.",
+              "Enter both Passport ID and Stamp Type ID to load issuance context.",
+            )
+          : isLoadingPermission
+            ? t(
+                "Loading the passport, stamp type, and issuer permission context.",
+                "Loading the passport, stamp type, and issuer permission context.",
+              )
+            : !hasResolvedAccessContext
+              ? t(
+                  "The issuance context could not be resolved from chain data.",
+                  "The issuance context could not be resolved from chain data.",
+                )
+              : passportExists === false
+                ? t(
+                    "The selected Passport ID does not exist on chain.",
+                    "The selected Passport ID does not exist on chain.",
+                  )
+                : !isPassportActive
+                  ? t(
+                      `Passport status is ${passportStatusLabel} and cannot receive a new stamp.`,
+                      `Passport status is ${passportStatusLabel} and cannot receive a new stamp.`,
+                    )
+                  : !isStampTypeActive
+                    ? t(
+                        "The selected stamp type is not active and cannot issue new stamps.",
+                        "The selected stamp type is not active and cannot issue new stamps.",
+                      )
+                    : !canIssue
+                      ? t(
+                          "This wallet is not authorized to issue this stamp type for the selected passport.",
+                          "This wallet is not authorized to issue this stamp type for the selected passport.",
+                        )
+                      : parsedSupersedesStampId === null
+                        ? t(
+                            "Supersedes Stamp ID must be 0 or a positive integer.",
+                            "Supersedes Stamp ID must be 0 or a positive integer.",
+                          )
+                        : hasSupersedesValidationError
+                          ? supersedesHelperMessage
+                        : t(
+                            "This wallet can issue a new stamp for the selected passport and stamp type.",
+                            "This wallet can issue a new stamp for the selected passport and stamp type.",
+                          );
+  const submitBlockedHint = canSubmitIssue
+    ? ""
+    : !isConnected ||
+        !hasCorrectChain ||
+        !isConfigured ||
+        !hasSelectedContext ||
+        isLoadingPermission ||
+        !hasResolvedAccessContext ||
+        passportExists === false ||
+        !isPassportActive ||
+        !isStampTypeActive ||
+        !canIssue ||
+        parsedSupersedesStampId === null ||
+        hasSupersedesValidationError
+      ? accessHint
+      : !hasMetadataCid
+        ? t(
+            "请先填写 Metadata CID，再签发印章。",
+            "Add a Metadata CID before issuing the stamp.",
+          )
+        : occurredAtValidationMessage;
   const accessToneClass =
     accessLabel === t("Authorized Issuer", "Authorized Issuer")
       ? "text-emerald-700"
@@ -228,6 +326,10 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
 
   return (
     <PassportShell currentKey="issue">
+      <PassportTransactionSuccessNotice
+        message={successNoticeMessage}
+        onClose={clearSuccessNotice}
+      />
       <div className="passport-dashboard-body">
         <section className="passport-dashboard-primary panel-surface accent-grid relative overflow-hidden p-8 lg:p-10">
           <div className="passport-dashboard-primary__grid relative">
@@ -486,6 +588,9 @@ export default function PassportIssueStampPage(props: PassportIssueStampPageProp
                     ? t("Submitting...", "Submitting...")
                     : t("Issue Stamp", "Issue Stamp")}
                 </button>
+                {!canSubmitIssue && !isSubmitting && submitBlockedHint ? (
+                  <p className="mt-3 text-sm font-medium text-amber-800">{submitBlockedHint}</p>
+                ) : null}
               </div>
             </div>
           </div>
