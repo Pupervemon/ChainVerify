@@ -11,6 +11,7 @@
 - [PassportFactory.md](E:/Myspace/MyProject/DeProof/docs/passport/PassportFactory.md)
 - [PassportDeployment.md](E:/Myspace/MyProject/DeProof/docs/passport/PassportDeployment.md)
 - [passport_contract_draft.md](E:/Myspace/MyProject/DeProof/docs/passport_contract_draft.md)
+- [erc6551扩展.md](E:/Myspace/MyProject/DeProof/docs/erc6551扩展.md)
 
 推荐阅读顺序：
 
